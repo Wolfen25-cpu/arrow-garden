@@ -1,15 +1,21 @@
 // Soft synthesized sounds with the Web Audio API. No audio files.
 
-// Major pentatonic steps: consecutive exits climb a scale that always sounds pleasant.
-const PENTATONIC = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
-const STREAK_RESET_MS = 2500;
+// Major pentatonic steps: any of them sound pleasant together.
+const PENTATONIC = [0, 2, 4, 7, 9, 12, 14, 16, 19];
+// A streak of exits without a bump plays this melody: it climbs and falls over the scale
+// (indices into PENTATONIC) instead of sticking on the top note, and each pass through
+// it moves to a nearby key so long streaks keep changing.
+const CONTOUR = [0, 1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1];
+const KEYS = [0, 5, 2, 7];
+const HARMONY_FROM = 5; // a soft fifth joins in
+const SPARKLE_FROM = 10; // and later a high glint
+const MILESTONE = 5; // every fifth exit in a row adds a little flourish
 
 export class Sound {
   constructor() {
     this.ctx = null;
     this.muted = false;
-    this.streak = 0;
-    this.lastExit = 0;
+    this.streak = 0; // exits in a row without a bump
   }
 
   // Browsers only allow audio after a user gesture, so call this from input handlers.
@@ -49,17 +55,22 @@ export class Sound {
   }
 
   exit() {
-    const now = performance.now();
-    if (now - this.lastExit > STREAK_RESET_MS) this.streak = 0;
-    this.lastExit = now;
-    const step = PENTATONIC[Math.min(this.streak, PENTATONIC.length - 1)];
-    this.streak++;
-    const freq = 392 * 2 ** (step / 12);
+    const i = this.streak++;
+    const key = KEYS[Math.floor(i / CONTOUR.length) % KEYS.length];
+    const freq = 392 * 2 ** ((PENTATONIC[CONTOUR[i % CONTOUR.length]] + key) / 12);
     this.tone(freq, { dur: 0.45, type: 'triangle', gain: 0.09, slide: 1.02 });
     this.tone(freq * 2, { dur: 0.25, gain: 0.025 });
+    if (this.streak >= HARMONY_FROM) this.tone(freq * 2 ** (7 / 12), { at: 0.02, dur: 0.4, gain: 0.03 });
+    if (this.streak >= SPARKLE_FROM) this.tone(freq * 4, { at: 0.06, dur: 0.2, gain: 0.014 });
+    if (this.streak % MILESTONE === 0) {
+      this.tone(freq * 2, { at: 0.1, dur: 0.22, type: 'triangle', gain: 0.035 });
+      this.tone(freq * 2 * 2 ** (4 / 12), { at: 0.18, dur: 0.3, type: 'triangle', gain: 0.035 });
+    }
   }
 
+  // A bump ends the streak, so the melody starts again from the bottom.
   bump() {
+    this.streak = 0;
     this.tone(160, { dur: 0.18, gain: 0.14, slide: 0.75 });
   }
 
