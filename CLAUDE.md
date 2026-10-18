@@ -108,10 +108,15 @@ to the real board edge, through the empty cells outside the picture.
 - Both renderers expose the same API (`setGame`, `playExit(result)`, `playBounce(result)`,
   `showHint`, `clearHint`, `requestDraw`, `readTheme`, `calm`, `pick`, `tapSlop`); the 3D one
   adds `rotate(dx, dy)`. The inactive renderer holds `game = null` and draws nothing.
-- Cube: only faces turned towards the camera are drawn (a convex solid, so they never overlap),
-  then arrows on top. Tracks are sampled every half cell so a body bending over an edge gets a
-  point on the edge; segments on hidden faces are skipped. `pick()` inverts the face's
-  parallelogram to find the cell, so it does not depend on the last frame.
+- Cube: only faces turned towards the camera are drawn (a convex solid, so they never overlap).
+  Each face is painted through its own affine transform (face coordinates in cells) and clipped
+  to its outline, so arrows are flat 2D arrows on the surface and never stick out. Tracks are
+  sampled every half cell; from one face, the part of a track on a neighbouring face is
+  unfolded flat past the shared edge (`unfolder`), where the clip hides it. `pick()` inverts
+  the face's parallelogram to find the cell, so it does not depend on the last frame.
+- Cube turning is a trackball: `orientation` is a rotation matrix and each drag pre-multiplies
+  a turn about the screen axes, so the cube always follows the finger. Speed scales with the
+  cube's size on screen (`TURN_PER_DIAMETER`).
 - The rAF loop runs only while something animates (`requestDraw()`).
 - Theme colours come from CSS custom properties (`--board`, `--board-edge`, `--dot`); call
   `renderer.readTheme()` after changing `data-theme`.
