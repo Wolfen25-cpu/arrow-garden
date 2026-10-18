@@ -28,6 +28,7 @@ export function createUI(handlers) {
     levelGrid: $('level-grid'),
     toLevels: $('btn-to-levels'),
     level: $('level-label'),
+    tier: $('tier-label'),
     moves: $('moves-label'),
     lives: $('lives-label'),
     notice: $('level-notice'),
@@ -172,14 +173,15 @@ export function createUI(handlers) {
         tile.dataset.state = locked ? 'locked' : done ? 'done' : 'open';
         tile.dataset.tone = String((n - 1) % TILE_TONES);
         tile.disabled = locked;
-        const { shapeLabel, maxErrors } = info(n);
+        const { shapeLabel, maxErrors, tier } = info(n);
         const badge = maxErrors
           ? `<span class="tile-badge">${ICON_HEART}${maxErrors}</span>`
           : shapeLabel ? `<span class="tile-badge">${ICON_PICTURE}</span>` : '';
-        tile.innerHTML = (locked ? ICON_LOCK : `<span>${n}</span>${done ? ICON_CHECK : ''}`) + badge;
+        tile.innerHTML = (locked ? ICON_LOCK : `<span>${n}</span>${done ? ICON_CHECK : ''}`) + badge +
+          `<span class="tile-tier" data-tier="${tier}"></span>`;
         const status = locked ? t('levels.locked') : done ? t('levels.done') : '';
         const extra = maxErrors ? t('levels.limit', { n: maxErrors }) : shapeLabel ? t('levels.picture', { name: shapeLabel }) : '';
-        tile.setAttribute('aria-label', t('levels.tile', { n }) + status + extra);
+        tile.setAttribute('aria-label', t('levels.tile', { n }) + status + extra + t('levels.tier', { name: t(`tier.${tier}`) }));
         if (n === current && !locked) {
           tile.classList.add('is-current');
           tile.setAttribute('aria-current', 'true');
@@ -208,6 +210,7 @@ export function createUI(handlers) {
         el.level.textContent = t('game.tutorial');
         el.moves.classList.add('is-hidden');
         el.lives.hidden = true;
+        el.tier.hidden = true;
         el.notice.hidden = true;
       }
     },
@@ -225,6 +228,14 @@ export function createUI(handlers) {
       el.level.textContent = t('game.level', { n: level });
       el.prev.disabled = level <= 1;
       el.next.disabled = level >= unlocked;
+    },
+
+    // Difficulty pill next to the move counter.
+    setTier(tier) {
+      el.tier.hidden = !tier;
+      if (!tier) return;
+      el.tier.dataset.tier = tier;
+      el.tier.textContent = t(`tier.${tier}`);
     },
 
     setMoves(moves, visible) {

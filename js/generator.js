@@ -48,6 +48,7 @@ export function generateLevel(level) {
     shape: cfg.shape,
     mask,
     maxErrors: cfg.maxErrors,
+    tier: cfg.tier,
   };
 }
 

@@ -73,8 +73,8 @@ function showLevels() {
     completed: state.maxLevel - 1,
     current: state.level,
     info: (n) => {
-      const { shape, maxErrors } = levelConfig(n);
-      return { shapeLabel: shapeName(shape), maxErrors };
+      const { shape, maxErrors, tier } = levelConfig(n);
+      return { shapeLabel: shapeName(shape), maxErrors, tier };
     },
   });
 }
@@ -263,6 +263,7 @@ function refresh() {
   if (mode !== 'play' || !game) return;
   ui.setLevel(state.level, Math.min(state.maxLevel, LEVEL_COUNT));
   ui.setMoves(game.moves, state.showMoves);
+  ui.setTier(game.tier);
   ui.setLives(game.errors, game.maxErrors);
   ui.setUndo(game.canUndo && !game.isWon && !game.isLost);
 }

@@ -148,9 +148,37 @@ svg {
 
 .level-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 2px 8px;
+}
+
+/* Difficulty: a coloured dot plus the tier name. Colours are shared with the level tiles. */
+[data-tier="intro"], [data-tier="easy"] { --tier: #4fae5f; }
+[data-tier="medium"] { --tier: #4f8fe0; }
+[data-tier="hard"] { --tier: #e8913c; }
+[data-tier="expert"] { --tier: #e0564f; }
+
+.tier {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+.tier::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tier);
+}
+
+.tier[hidden] {
+  display: none;
 }
 
 /* Hearts left on levels with an error limit. */
@@ -642,6 +670,21 @@ svg {
   width: 16px;
   height: 16px;
   stroke-width: 3;
+}
+
+.level-tile .tile-tier {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tier);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.level-tile[data-state="done"] .tile-tier {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
 }
 
 .level-tile .tile-badge {

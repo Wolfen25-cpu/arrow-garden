@@ -71,13 +71,14 @@ export function solve(size, arrows) {
 export class Game {
   // `mask` (picture levels) marks the cells that belong to the figure; null means the whole board.
   // `maxErrors` > 0 limits how many bumps are allowed before the level must start over.
-  constructor({ level, size, arrows, shape = null, mask = null, maxErrors = 0 }) {
+  constructor({ level, size, arrows, shape = null, mask = null, maxErrors = 0, tier = null }) {
     this.level = level;
     this.size = size;
     this.initial = arrows;
     this.shape = shape;
     this.mask = mask;
     this.maxErrors = maxErrors;
+    this.tier = tier;
     this.restart();
   }
 
