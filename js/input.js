@@ -1,6 +1,7 @@
 // Pointer input (touch, mouse and pen alike). A tap is a press and release close
 // together, so small finger jitter still counts; it calls `onTap` with the id of the
-// arrow (or block) under the finger. On renderers that can turn (3D), dragging calls
+// arrow under the finger and, on flat boards, where on the board it landed (double
+// arrows go towards the nearer end). On renderers that can turn (3D), dragging calls
 // `rotate` instead. `getRenderer` returns whichever renderer is active right now.
 
 export function attachInput(canvas, getRenderer, onTap) {
@@ -33,7 +34,7 @@ export function attachInput(canvas, getRenderer, onTap) {
     press = null;
     if (dragging || moved >= renderer.tapSlop) return;
     const id = renderer.pick(x, y);
-    if (id !== null) onTap(id);
+    if (id !== null) onTap(id, renderer.boardPoint?.(x, y) ?? null);
   });
 
   canvas.addEventListener('pointercancel', () => {

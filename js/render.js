@@ -148,6 +148,11 @@ export class Renderer {
     return cell ? this.game.arrowAt(cell.x, cell.y)?.id ?? null : null;
   }
 
+  // Where a point falls on the board, in cells with cell centres on integers.
+  boardPoint(px, py) {
+    return { x: (px - this.ox) / this.cell - 0.5, y: (py - this.oy) / this.cell - 0.5 };
+  }
+
   // How far a finger may wander and still count as a tap.
   get tapSlop() {
     return this.cell * 0.8;

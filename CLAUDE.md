@@ -62,7 +62,9 @@ main.js ── wires everything; owns `state` (progress + settings), the current
 - An arrow is `{ id, cells, dir, color, both? }`. `cells` runs **tail → head**, 1–4 cells, straight
   or with one 90° bend. `dir` is the head direction (`up | right | down | left`). `color` is a
   palette index (0–11); the actual colours live in `render.js` (`PALETTES.light` / `.dark`).
-  `both` marks a double arrow that may also leave tail first (`reversed()`; `exitWay()` picks).
+  `both` marks a double arrow that may also leave tail first (`reversed()`). A tap sends it
+  towards the end nearest the touch (`nearTail()` on `renderer.boardPoint()`), bumping if
+  that way is blocked; the solver and hints treat it as free when either end is (`exitWay()`).
 - Arrows move like a snake: the body follows the head. So **only the path from the head**
   decides whether an arrow can leave (`exitPath` + `blockIndex`).
 - Obstacles `{ x, y, kind: 'turn' | 'hole', dir? }` are fixed cells encoded in the grid

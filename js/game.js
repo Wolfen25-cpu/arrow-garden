@@ -86,6 +86,25 @@ export function blockIndex(size, grid, arrow) {
   return -1;
 }
 
+// Whether a tap at `point` (board coordinates, cell centres on integers) is nearer the
+// tail end of the arrow than the head end. Measured along the body, so bends count: the
+// nearest cell decides, and on the middle cell (or a one-cell arrow) the side of it does.
+export function nearTail(arrow, point) {
+  const { cells } = arrow;
+  const dist = (c) => Math.hypot(point.x - c.x, point.y - c.y);
+  if (cells.length === 1) {
+    const { dx, dy } = DIRS[arrow.dir];
+    return (point.x - cells[0].x) * dx + (point.y - cells[0].y) * dy < 0;
+  }
+  let i = 0;
+  cells.forEach((c, k) => {
+    if (dist(c) < dist(cells[i])) i = k;
+  });
+  const middle = (cells.length - 1) / 2;
+  if (i !== middle) return i < middle;
+  return dist(cells[i - 1]) < dist(cells[i + 1]);
+}
+
 // How the arrow would leave right now (itself, or reversed for a double arrow), or null if stuck.
 export function exitWay(size, grid, arrow) {
   if (blockIndex(size, grid, arrow) === -1) return arrow;
@@ -165,21 +184,25 @@ export class Game {
     return this.arrows.find((a) => a.cells.some((c) => c.x === x && c.y === y)) ?? null;
   }
 
-  // Every tap counts as a move. Returns what happened so render and audio can react:
+  // Every tap counts as a move. A double arrow heads for the end nearest `point` (where
+  // the tap landed); without a point it takes whichever end is free.
+  // Returns what happened so render and audio can react:
   // `path` is the way out (through turns, maybe into a hole) and `distance` how many
   // of its cells are free (all of them on an exit, up to the blocker on a bump).
   // A bump counts as an error; undo never gives errors back.
-  tap(id) {
+  tap(id, point = null) {
     const arrow = this.arrows.find((a) => a.id === id);
     if (!arrow || this.isLost) return null;
 
     const grid = this.grid();
-    const way = exitWay(this.size, grid, arrow);
+    const chosen = arrow.both && point ? (nearTail(arrow, point) ? reversed(arrow) : arrow) : null;
+    const way = chosen ? (blockIndex(this.size, grid, chosen) === -1 ? chosen : null) : exitWay(this.size, grid, arrow);
     this.moves++;
     if (!way) {
       this.errors++;
-      const path = exitPath(this.size, grid, arrow);
-      return { type: 'blocked', arrow, distance: blockIndex(this.size, grid, arrow), path: path?.cells ?? [] };
+      const shown = chosen ?? arrow; // a double arrow bumps the way it was sent
+      const path = exitPath(this.size, grid, shown);
+      return { type: 'blocked', arrow: shown, distance: blockIndex(this.size, grid, shown), path: path?.cells ?? [] };
     }
 
     // `arrow` in the result is the moving version: reversed when a double arrow backs out.

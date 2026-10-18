@@ -290,7 +290,7 @@ function useRenderer(next) {
   renderer = next;
 }
 
-function handleTap(id) {
+function handleTap(id, point) {
   sound.unlock();
   if ((mode !== 'play' && mode !== 'tutorial') || !game || game.isWon || game.isLost) return;
   const arrow = game.arrows.find((a) => a.id === id);
@@ -298,7 +298,7 @@ function handleTap(id) {
   // Keep the lesson on track: only the glowing arrow responds.
   if (mode === 'tutorial' && arrow.id !== TUTORIAL_STEPS[tutorialStep]?.target) return;
 
-  const result = game.tap(arrow.id);
+  const result = game.tap(arrow.id, point);
   if (result.type === 'exit') {
     renderer.playExit(result);
     sound.exit();
