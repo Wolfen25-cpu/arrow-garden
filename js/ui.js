@@ -15,6 +15,11 @@ export function createUI(handlers) {
     restart: $('btn-restart'),
     sound: $('btn-sound'),
     status: $('sr-status'),
+    settingsBtn: $('btn-settings'),
+    settings: $('settings'),
+    swSound: $('sw-sound'),
+    swVibration: $('sw-vibration'),
+    swMoves: $('sw-moves'),
   };
 
   el.prev.addEventListener('click', handlers.onPrev);
@@ -23,6 +28,28 @@ export function createUI(handlers) {
   el.hint.addEventListener('click', handlers.onHint);
   el.restart.addEventListener('click', handlers.onRestart);
   el.sound.addEventListener('click', handlers.onToggleSound);
+
+  // Settings dialog
+  el.settingsBtn.addEventListener('click', () => el.settings.showModal());
+  for (const dialog of document.querySelectorAll('dialog')) {
+    dialog.querySelector('[data-close]')?.addEventListener('click', () => dialog.close());
+    // Close when tapping the backdrop (the dialog element itself, outside its content).
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+  }
+  const toggle = (sw, key, invert = false) => {
+    sw.addEventListener('click', () => {
+      const checked = sw.getAttribute('aria-checked') !== 'true';
+      handlers.onSettingsChange({ [key]: invert ? !checked : checked });
+    });
+  };
+  toggle(el.swSound, 'muted', true);
+  toggle(el.swVibration, 'vibration');
+  toggle(el.swMoves, 'showMoves');
+  for (const radio of document.querySelectorAll('input[name="theme"]')) {
+    radio.addEventListener('change', () => handlers.onSettingsChange({ theme: radio.value }));
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.altKey || e.target.closest('input, dialog')) return;
@@ -50,9 +77,14 @@ export function createUI(handlers) {
       el.undo.disabled = !enabled;
     },
 
-    setSound(on) {
-      el.sound.setAttribute('aria-pressed', String(!on));
-      el.sound.setAttribute('aria-label', on ? 'Silenciar sonido' : 'Activar sonido');
+    setSettings({ muted, vibration, showMoves, theme }) {
+      el.sound.setAttribute('aria-pressed', String(muted));
+      el.sound.setAttribute('aria-label', muted ? 'Activar sonido' : 'Silenciar sonido');
+      el.swSound.setAttribute('aria-checked', String(!muted));
+      el.swVibration.setAttribute('aria-checked', String(vibration));
+      el.swMoves.setAttribute('aria-checked', String(showMoves));
+      const radio = document.querySelector(`input[name="theme"][value="${theme}"]`);
+      if (radio) radio.checked = true;
     },
 
     // Read out by screen readers.

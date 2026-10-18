@@ -6,12 +6,14 @@ import { LEVEL_COUNT } from './levels.js';
 import { Renderer } from './render.js';
 import { attachInput } from './input.js';
 import { Sound, vibrate } from './audio.js';
+import { loadState, saveState } from './storage.js';
 import { createUI } from './ui.js';
 
 const canvas = document.getElementById('board');
 const renderer = new Renderer(canvas);
 const sound = new Sound();
-const state = { level: 1, maxLevel: 1, showMoves: true, muted: false, vibration: true };
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+const state = loadState();
 let game;
 
 const ui = createUI({
@@ -22,9 +24,9 @@ const ui = createUI({
   onRestart: restart,
   onToggleSound: () => {
     sound.unlock();
-    state.muted = !state.muted;
-    applySettings();
+    changeSettings({ muted: !state.muted });
   },
+  onSettingsChange: changeSettings,
 });
 
 function startLevel(level) {
@@ -32,12 +34,32 @@ function startLevel(level) {
   game = new Game(generateLevel(state.level));
   renderer.setGame(game);
   sound.resetStreak();
+  persist();
+  refresh();
+}
+
+function persist() {
+  saveState(state);
+}
+
+function changeSettings(changes) {
+  Object.assign(state, changes, { settingsAt: Date.now() });
+  persist();
+  applySettings();
   refresh();
 }
 
 function applySettings() {
   sound.muted = state.muted;
-  ui.setSound(!state.muted);
+  applyTheme();
+  ui.setSettings(state);
+}
+
+function applyTheme() {
+  const dark = state.theme === 'dark' || (state.theme === 'auto' && darkQuery.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#1d2030' : '#f4ede1';
+  renderer.readTheme();
 }
 
 function refresh() {
@@ -67,6 +89,8 @@ function handleTap(cell) {
 
 function completeLevel() {
   state.maxLevel = Math.max(state.maxLevel, Math.min(state.level + 1, LEVEL_COUNT));
+  state.progressAt = Date.now();
+  persist();
   setTimeout(() => sound.win(), renderer.calm ? 150 : 600);
 }
 
@@ -89,6 +113,10 @@ function restart() {
   renderer.setGame(game);
   refresh();
 }
+
+darkQuery.addEventListener('change', () => {
+  if (state.theme === 'auto') applyTheme();
+});
 
 attachInput(canvas, renderer, handleTap);
 applySettings();
