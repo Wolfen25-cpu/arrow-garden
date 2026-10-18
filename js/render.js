@@ -19,6 +19,7 @@ const HEAD_LENGTH = 0.36;
 const HEAD_HALF_WIDTH = 0.3;
 
 const HINT_DURATION = 3200;
+const PARTICLES_PER_BURST = 16;
 
 const clamp01 = (t) => Math.min(1, Math.max(0, t));
 const easeInOutQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -68,9 +69,11 @@ export class Renderer {
     this.game = null;
     this.anims = new Map(); // arrow id → slide or bounce animation
     this.tracks = new WeakMap(); // resting tracks, cached per arrow
+    this.particles = [];
     this.hint = null;
     this.intro = null;
     this.raf = 0;
+    this.lastFrame = 0;
     this.w = 0;
     this.h = 0;
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
@@ -119,6 +122,7 @@ export class Renderer {
   setGame(game, { entrance = true } = {}) {
     this.game = game;
     this.anims.clear();
+    this.particles = [];
     this.hint = null;
     this.intro = entrance && !this.calm ? { start: performance.now() } : null;
     this.layout();
@@ -231,13 +235,69 @@ export class Renderer {
       if (anim.type !== 'exit' || live.has(id)) continue;
       const p = clamp01((now - anim.start) / anim.duration);
       const offset = easeInOutQuad(p) * anim.travel;
+      if (!anim.burst && offset >= anim.edgeAt) {
+        anim.burst = true;
+        this.burst(anim);
+      }
       const fade = 1 - clamp01((offset - anim.edgeAt) / (anim.arrow.cells.length + 0.2));
       this.drawArrow(anim.arrow, bodyPoints(anim.track, anim.arrow.cells.length, offset), { alpha: fade });
       if (p >= 1) this.anims.delete(id);
       else active = true;
     }
 
+    if (this.drawParticles(now)) active = true;
+    this.lastFrame = now;
     if (active) this.requestDraw();
+  }
+
+  // A little puff of petals where the arrow leaves the board.
+  burst(anim) {
+    if (this.calm) return;
+    const { arrow } = anim;
+    const { dx, dy } = DIRS[arrow.dir];
+    const head = arrow.cells[arrow.cells.length - 1];
+    const [x, y] = this.toPx({ x: head.x + dx * anim.edgeAt, y: head.y + dy * anim.edgeAt });
+    const heading = Math.atan2(dy, dx);
+    const color = this.colors.palette[arrow.color];
+    for (let i = 0; i < PARTICLES_PER_BURST; i++) {
+      const angle = heading + (Math.random() - 0.5) * 2.2;
+      const speed = this.cell * (1.5 + Math.random() * 3.5);
+      this.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: this.cell * (0.05 + Math.random() * 0.07),
+        life: 500 + Math.random() * 450,
+        age: 0,
+        color,
+      });
+    }
+  }
+
+  drawParticles(now) {
+    if (!this.particles.length) return false;
+    const { ctx } = this;
+    const dt = Math.min(50, now - (this.lastFrame || now));
+    const drag = Math.pow(0.04, dt / 1000); // velocity left after dt
+    ctx.save();
+    this.particles = this.particles.filter((p) => {
+      p.age += dt;
+      if (p.age >= p.life) return false;
+      p.x += (p.vx * dt) / 1000;
+      p.y += (p.vy * dt) / 1000;
+      p.vx *= drag;
+      p.vy *= drag;
+      const t = p.age / p.life;
+      ctx.globalAlpha = 1 - t * t;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1 - 0.5 * t), 0, Math.PI * 2);
+      ctx.fill();
+      return true;
+    });
+    ctx.restore();
+    return this.particles.length > 0;
   }
 
   restingTrack(arrow) {
