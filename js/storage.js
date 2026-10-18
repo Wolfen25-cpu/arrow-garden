@@ -15,10 +15,12 @@ export const DEFAULTS = {
   account: false, // signed in last time: reconnect to the cloud on startup
   tutorialDone: false,
   lang: 'es', // device-only, not synced (cloud documents would need a rules change)
+  tips: [], // device-only: new-mechanic notices already shown
 };
 
 const THEMES = ['auto', 'light', 'dark'];
 const LANGS = ['es', 'en'];
+const TIPS = ['double', 'turn', 'hole', 'cube'];
 
 // Accepts anything (stored JSON, cloud data) and returns a well-formed state.
 export function sanitize(raw) {
@@ -39,6 +41,7 @@ export function sanitize(raw) {
     account: bool(data.account, DEFAULTS.account),
     tutorialDone: bool(data.tutorialDone, DEFAULTS.tutorialDone),
     lang: LANGS.includes(data.lang) ? data.lang : DEFAULTS.lang,
+    tips: Array.isArray(data.tips) ? TIPS.filter((tip) => data.tips.includes(tip)) : [],
   };
 }
 

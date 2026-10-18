@@ -1,8 +1,9 @@
 // Pure game model: no DOM, no canvas. Shared by the UI and the level generator.
 //
-// An arrow is { id, cells, dir, color } where `cells` runs tail → head and
+// An arrow is { id, cells, dir, color, both? } where `cells` runs tail → head and
 // `dir` is where the head points. Arrows slide like a snake: the body follows
 // the head, so only the straight ray in front of the head can block them.
+// A double arrow (`both`) may also leave backwards, tail first.
 
 export const DIRS = {
   up: { dx: 0, dy: -1 },
@@ -14,6 +15,20 @@ export const DIRS = {
 export const DIR_NAMES = Object.keys(DIRS);
 
 export const headOf = (arrow) => arrow.cells[arrow.cells.length - 1];
+
+const OPPOSITE = { up: 'down', down: 'up', left: 'right', right: 'left' };
+
+// The same arrow travelling the other way: the tail becomes the head.
+export function reversed(arrow) {
+  const { cells } = arrow;
+  let dir = OPPOSITE[arrow.dir];
+  if (cells.length > 1) {
+    const dx = cells[0].x - cells[1].x;
+    const dy = cells[0].y - cells[1].y;
+    dir = DIR_NAMES.find((d) => DIRS[d].dx === dx && DIRS[d].dy === dy);
+  }
+  return { ...arrow, cells: cells.slice().reverse(), dir };
+}
 
 export function buildGrid(size, arrows) {
   const grid = new Int16Array(size * size).fill(-1);
@@ -44,9 +59,17 @@ export function blockIndex(size, grid, arrow) {
   return -1;
 }
 
+// How the arrow would leave right now (itself, or reversed for a double arrow), or null if stuck.
+export function exitWay(size, grid, arrow) {
+  if (blockIndex(size, grid, arrow) === -1) return arrow;
+  if (!arrow.both) return null;
+  const back = reversed(arrow);
+  return blockIndex(size, grid, back) === -1 ? back : null;
+}
+
 export function freeArrows(size, arrows) {
   const grid = buildGrid(size, arrows);
-  return arrows.filter((a) => blockIndex(size, grid, a) === -1);
+  return arrows.filter((a) => exitWay(size, grid, a));
 }
 
 // Removing an arrow only ever frees cells, so greedily removing every free
@@ -57,7 +80,7 @@ export function solve(size, arrows) {
   let remaining = arrows;
   let depth = 0;
   while (remaining.length) {
-    const free = remaining.filter((a) => blockIndex(size, grid, a) === -1);
+    const free = remaining.filter((a) => exitWay(size, grid, a));
     if (!free.length) return { solvable: false, depth };
     for (const a of free) {
       for (const c of a.cells) grid[c.y * size + c.x] = -1;
@@ -79,6 +102,8 @@ export class Game {
     this.mask = mask;
     this.maxErrors = maxErrors;
     this.tier = tier;
+    // Special rules on this board, for one-time explanations.
+    this.mechanics = arrows.some((a) => a.both) ? ['double'] : [];
     this.restart();
   }
 
@@ -112,16 +137,23 @@ export class Game {
     const arrow = this.arrows.find((a) => a.id === id);
     if (!arrow || this.isLost) return null;
 
-    const block = blockIndex(this.size, buildGrid(this.size, this.arrows), arrow);
+    const grid = buildGrid(this.size, this.arrows);
+    const way = exitWay(this.size, grid, arrow);
     this.moves++;
-    if (block !== -1) {
+    if (!way) {
       this.errors++;
-      return { type: 'blocked', arrow, distance: block };
+      return { type: 'blocked', arrow, distance: blockIndex(this.size, grid, arrow) };
     }
 
+    // `arrow` in the result is the moving version: reversed when a double arrow backs out.
     this.history.push({ arrows: this.arrows, moves: this.moves - 1 });
     this.arrows = this.arrows.filter((a) => a !== arrow);
-    return { type: 'exit', arrow, distance: rayCells(this.size, arrow).length };
+    return { type: 'exit', arrow: way, distance: rayCells(this.size, way).length };
+  }
+
+  // The way a resting arrow would leave now, for drawing hints.
+  exitWay(arrow) {
+    return exitWay(this.size, buildGrid(this.size, this.arrows), arrow);
   }
 
   undo() {

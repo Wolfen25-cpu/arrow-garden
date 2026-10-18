@@ -53,6 +53,9 @@ function tierFor(level) {
   return level <= WARMUP && tier !== 'easy' ? 'medium' : tier;
 }
 
+// Double arrows appear from level 21 on medium and harder boards.
+const DOUBLES_FROM = 21;
+
 // Some levels allow only a few bumps before starting over: 3, or 2 from level 50
 // (expert boards keep 3, so they stay fair).
 function errorLimit(level, tier) {
@@ -79,6 +82,7 @@ export function levelConfig(level) {
       fill: 0.5 + 0.02 * i,
       minDepth,
       maxDepth: minDepth + 2,
+      doubleChance: 0,
       seed,
     };
   }
@@ -99,6 +103,7 @@ export function levelConfig(level) {
     fill: shape ? 0.92 : t.fill,
     minDepth: shape ? Math.min(t.minDepth, 8) : t.minDepth,
     maxDepth: shape ? t.maxDepth + 4 : t.maxDepth,
+    doubleChance: !shape && level >= DOUBLES_FROM && tier !== 'easy' ? 0.12 : 0,
     seed,
   };
 }

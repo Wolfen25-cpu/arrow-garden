@@ -121,7 +121,10 @@ function randomArrow(id, start, cfg, rng, grid) {
   }
 
   if (cells.length < cfg.minLength) return null;
-  return { id, cells, dir, color: 0 };
+  const arrow = { id, cells, dir, color: 0 };
+  // Only roll when doubles are on, so levels without them keep their exact boards.
+  if (cfg.doubleChance && rng.chance(cfg.doubleChance)) arrow.both = true;
+  return arrow;
 }
 
 // Neighbouring arrows never share a colour; the starting hue varies per level.

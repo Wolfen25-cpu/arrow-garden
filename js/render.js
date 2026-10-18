@@ -52,9 +52,12 @@ function pointAt(track, s) {
   return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
 }
 
+// Double arrows carry a head at the tail too, so their body reaches the tail cell's centre.
+const insetOf = (arrow) => (arrow.both ? 0 : TAIL_INSET);
+
 // Points of the arrow body after sliding `offset` cells along its track.
-function bodyPoints(track, length, offset) {
-  const s0 = 1 - TAIL_INSET + offset;
+function bodyPoints(track, length, offset, inset = TAIL_INSET) {
+  const s0 = 1 - inset + offset;
   const s1 = length + offset;
   const points = [pointAt(track, s0)];
   for (let k = Math.floor(s0) + 1; k < s1; k++) points.push(track[k]);
@@ -224,7 +227,7 @@ export class Renderer {
 
       const glow = hint?.id === arrow.id ? hint.strength : 0;
       if (glow) this.drawRay(arrow, glow);
-      this.drawArrow(arrow, bodyPoints(track, arrow.cells.length, offset), { alpha, scale, glow });
+      this.drawArrow(arrow, bodyPoints(track, arrow.cells.length, offset, insetOf(arrow)), { alpha, scale, glow });
     });
 
     if (this.intro) {
@@ -241,7 +244,8 @@ export class Renderer {
         this.burst(anim);
       }
       const fade = 1 - clamp01((offset - anim.edgeAt) / (anim.arrow.cells.length + 0.2));
-      this.drawArrow(anim.arrow, bodyPoints(anim.track, anim.arrow.cells.length, offset), { alpha: fade });
+      const points = bodyPoints(anim.track, anim.arrow.cells.length, offset, insetOf(anim.arrow));
+      this.drawArrow(anim.arrow, points, { alpha: fade });
       if (p >= 1) this.anims.delete(id);
       else active = true;
     }
@@ -377,13 +381,14 @@ export class Renderer {
     ctx.fill();
   }
 
-  // Soft dots along the way out, shown with a hint.
+  // Soft dots along the way out, shown with a hint (backwards when a double arrow leaves that way).
   drawRay(arrow, strength) {
     const { ctx, cell } = this;
+    const way = this.game.exitWay?.(arrow) ?? arrow;
     ctx.save();
     ctx.globalAlpha = 0.6 * strength;
     ctx.fillStyle = this.colors.palette[arrow.color];
-    for (const c of rayCells(this.game.size, arrow)) {
+    for (const c of rayCells(this.game.size, way)) {
       const [px, py] = this.toPx(c);
       ctx.beginPath();
       ctx.arc(px, py, cell * 0.11, 0, Math.PI * 2);
@@ -397,22 +402,28 @@ export class Renderer {
     const { ctx, cell } = this;
     const color = this.colors.palette[arrow.color];
     const { dx, dy } = DIRS[arrow.dir];
-    const head = points[points.length - 1];
-    const tip = { x: head.x + dx * HEAD_LENGTH, y: head.y + dy * HEAD_LENGTH };
-    const base = { x: head.x - dx * 0.04, y: head.y - dy * 0.04 };
-    const left = { x: base.x - dy * HEAD_HALF_WIDTH, y: base.y + dx * HEAD_HALF_WIDTH };
-    const right = { x: base.x + dy * HEAD_HALF_WIDTH, y: base.y - dx * HEAD_HALF_WIDTH };
+    const heads = [{ at: points[points.length - 1], dx, dy }];
+    if (arrow.both) {
+      // The tail head points back along the first body segment (or straight back for one cell).
+      const [a, b] = points;
+      const len = Math.hypot(a.x - b.x, a.y - b.y);
+      heads.push(len > 1e-3
+        ? { at: a, dx: (a.x - b.x) / len, dy: (a.y - b.y) / len }
+        : { at: a, dx: -dx, dy: -dy });
+    }
 
     const shaft = () => {
       ctx.beginPath();
       ctx.moveTo(...this.toPx(points[0]));
       for (let i = 1; i < points.length; i++) ctx.lineTo(...this.toPx(points[i]));
     };
-    const arrowhead = () => {
+    const arrowhead = ({ at, dx: ux, dy: uy }) => {
+      const tip = { x: at.x + ux * HEAD_LENGTH, y: at.y + uy * HEAD_LENGTH };
+      const base = { x: at.x - ux * 0.04, y: at.y - uy * 0.04 };
       ctx.beginPath();
       ctx.moveTo(...this.toPx(tip));
-      ctx.lineTo(...this.toPx(left));
-      ctx.lineTo(...this.toPx(right));
+      ctx.lineTo(...this.toPx({ x: base.x - uy * HEAD_HALF_WIDTH, y: base.y + ux * HEAD_HALF_WIDTH }));
+      ctx.lineTo(...this.toPx({ x: base.x + uy * HEAD_HALF_WIDTH, y: base.y - ux * HEAD_HALF_WIDTH }));
       ctx.closePath();
     };
     const paint = (style, width) => {
@@ -422,9 +433,11 @@ export class Renderer {
       shaft();
       ctx.stroke();
       ctx.lineWidth = cell * 0.1; // rounds the arrowhead corners
-      arrowhead();
-      ctx.fill();
-      ctx.stroke();
+      for (const head of heads) {
+        arrowhead(head);
+        ctx.fill();
+        ctx.stroke();
+      }
     };
 
     ctx.save();

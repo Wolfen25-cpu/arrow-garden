@@ -107,13 +107,19 @@ function startLevel(level) {
   introduceLevel();
 }
 
-// Tells the player up front what is special about this level.
+// Tells the player up front what is special about this level. A mechanic seen for the
+// first time on this device is explained once and wins over the other notices.
 function introduceLevel() {
   const label = shapeName(game.shape);
+  const tip = game.mechanics.find((m) => !state.tips.includes(m));
   let text = '';
-  if (game.maxErrors) text = t('game.noticeLimit', { n: game.maxErrors });
+  if (tip) {
+    text = t(`tip.${tip}`);
+    state.tips.push(tip);
+    saveState(state);
+  } else if (game.maxErrors) text = t('game.noticeLimit', { n: game.maxErrors });
   else if (label) text = t('game.noticePicture', { name: label });
-  ui.notice(text);
+  ui.notice(text, { long: Boolean(tip) });
   if (text) ui.announce(text);
 }
 
@@ -278,7 +284,7 @@ function handleTap(cell) {
 
   const result = game.tap(arrow.id);
   if (result.type === 'exit') {
-    renderer.playExit(arrow, result.distance);
+    renderer.playExit(result.arrow, result.distance);
     sound.exit();
   } else {
     renderer.playBounce(arrow, result.distance);

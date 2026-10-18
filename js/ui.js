@@ -10,6 +10,7 @@ const ICON_HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.
 const ICON_PICTURE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="6.5" r="3"/><circle cx="12" cy="17.5" r="3"/><circle cx="6.5" cy="12" r="3"/><circle cx="17.5" cy="12" r="3"/></svg>';
 const TILE_TONES = 8;
 const NOTICE_MS = 3200;
+const LONG_NOTICE_MS = 6000; // explanations of a new mechanic need longer to read
 
 export function createUI(handlers) {
   const el = {
@@ -254,14 +255,15 @@ export function createUI(handlers) {
     },
 
     // Short message over the board when a level starts, e.g. its error limit.
-    notice(text) {
+    notice(text, { long = false } = {}) {
       clearTimeout(noticeTimer);
       el.notice.hidden = !text;
       if (!text) return;
       el.notice.textContent = text;
+      el.notice.classList.toggle('is-long', long);
       noticeTimer = setTimeout(() => {
         el.notice.hidden = true;
-      }, NOTICE_MS);
+      }, long ? LONG_NOTICE_MS : NOTICE_MS);
     },
 
     setUndo(enabled) {

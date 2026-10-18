@@ -227,6 +227,10 @@ svg {
   animation: notice 3.2s ease both;
 }
 
+.notice.is-long {
+  animation-duration: 6s;
+}
+
 .notice[hidden] {
   display: none;
 }
