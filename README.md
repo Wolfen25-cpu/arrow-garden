@@ -4,7 +4,8 @@ Un puzzle de flechas relajante para el navegador. Toca una flecha y se desliza e
 a la que apunta hasta salir del tablero. Si otra flecha le bloquea el paso, rebota suavemente y
 no pasa nada. Saca todas las flechas para completar el nivel.
 
-Sin temporizador, sin vidas, sin prisa.
+Sin temporizador y sin prisa. Solo algunos niveles marcados con un corazón limitan los choques.
+Si te quedas sin choques, el nivel vuelve a empezar y no pierdes nada más.
 
 ## Características
 
@@ -12,8 +13,12 @@ Sin temporizador, sin vidas, sin prisa.
 - **Selector de niveles** en cuadrícula: completados en color, el actual resaltado y los
   bloqueados con candado.
 - **Tutorial interactivo** en un tablero de 3×3 que enseña a mover, a rebotar y las flechas con curva.
-- **10 niveles** generados proceduralmente, de 4×4 a 10×10. Las flechas son cada vez más
+- **50 niveles** generados proceduralmente, de 4×4 a 10×10. Las flechas son cada vez más
   largas (1 a 4 celdas) y algunas tienen curva.
+- **Niveles con figura**: en los niveles 11, 15, 19… y en el 50, el tablero tiene forma de corazón,
+  casa, flor, pez, lobo, árbol, estrella, barco, hongo, luna o mariposa.
+- **Niveles con límite de choques**: a partir del 13, uno de cada cuatro niveles permite solo 3
+  choques (2 desde el nivel 37). Se ven como corazones junto al contador.
 - **Siempre hay solución**: el generador solo acepta un tablero si existe un orden válido para
   sacar todas las flechas.
 - **Deshacer, pista y reiniciar**. La pista resalta una flecha que puedes sacar ahora.
@@ -115,7 +120,8 @@ css/styles.css          Estilos y colores (claro/oscuro)
 js/main.js              Arranque: conecta todas las piezas
 js/game.js              Modelo del juego y solucionador
 js/generator.js         Generador de niveles con solución garantizada
-js/levels.js            Curva de dificultad
+js/levels.js            Curva de dificultad, niveles con figura y con límite de choques
+js/shapes.js            Figuras de los niveles con dibujo
 js/rng.js               Aleatoriedad con semilla (cada nivel es siempre igual)
 js/render.js            Dibujo en Canvas, animaciones y partículas
 js/input.js             Toques y clics
@@ -134,8 +140,8 @@ tools/check-levels.mjs  Verifica que todos los niveles tienen solución
 ## Comprobar los niveles
 
 ```bash
-node tools/check-levels.mjs 30
+node tools/check-levels.mjs 50
 ```
 
-Genera los niveles 1 a 30 y comprueba que todos tienen solución, que son deterministas y que las
+Genera los niveles 1 a 50 y comprueba que todos tienen solución, que son deterministas y que las
 flechas están bien formadas.

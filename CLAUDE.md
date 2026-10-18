@@ -6,10 +6,12 @@ Arrow Garden (arrow-garden): a relaxing arrow puzzle for the browser, published 
 
 - **No build step, no frameworks, no npm dependencies.** Plain HTML, CSS and ES modules that run
   as-is from GitHub Pages. Do not add a bundler, TypeScript or a `package.json` for runtime code.
-- **Relaxing by design**: no timers, no lives, no fail states. A blocked move bounces and costs
-  nothing but a move on the counter.
+- **Relaxing by design**: no timers. A blocked move bounces and costs only a move on the counter,
+  except on the few levels with an error limit (`maxErrors`, see `levels.js`): there a bump also
+  uses up a heart, and running out just restarts the same board. Keep limits rare and gentle.
+  The tutorial never has a limit.
 - **Every generated level must be solvable.** Any generator change must keep `solve()` passing;
-  run `node tools/check-levels.mjs 30` before committing.
+  run `node tools/check-levels.mjs 50` before committing.
 - **Levels are deterministic**: level N always produces the same board (seeded RNG). Never use
   `Math.random()` in `generator.js`, `levels.js` or `game.js` (it is fine in `render.js` for particles).
 - **All user-facing text is in Spanish.** Code, identifiers and comments are in English.
@@ -29,8 +31,10 @@ main.js ── wires everything; owns `state` (progress + settings), the current
   │          Flow: Inicio → Jugar → Niveles → level. `maxLevel` is the first level not yet
   │          completed (can be LEVEL_COUNT + 1), so completed = maxLevel - 1.
   ├─ tutorial.js ─── fixed 3×3 board + scripted steps (target arrow, expected result, text)
-  ├─ generator.js ── generateLevel(n) → { level, size, arrows, depth }
-  │    ├─ levels.js   levelConfig(n): size, arrow lengths, bend chance, fill, min depth, seed
+  ├─ generator.js ── generateLevel(n) → { level, size, arrows, depth, shape, mask, maxErrors }
+  │    ├─ levels.js   levelConfig(n): size, shape, maxErrors, arrow lengths, bend chance, fill,
+  │    │              min depth, seed
+  │    ├─ shapes.js   ASCII pictures (heart, house, wolf…) → shapeMask(id, size)
   │    └─ rng.js      createRng(seed), hashSeed(...)
   ├─ game.js ─────── pure model (no DOM): Game, solve(), freeArrows(), rayCells(), DIRS
   ├─ render.js ───── Canvas 2D renderer; animations only, never mutates the game
@@ -51,7 +55,8 @@ main.js ── wires everything; owns `state` (progress + settings), the current
   the edge** decides whether an arrow can leave (`blockIndex`).
 - Removing an arrow only frees cells, so the greedy round-by-round solver in `solve()` is complete.
   `depth` (number of rounds) measures difficulty.
-- `Game.tap(id)` returns `{ type: 'exit' | 'blocked', arrow, distance }`. The model updates
+- `Game.tap(id)` returns `{ type: 'exit' | 'blocked', arrow, distance }` (or `null` once
+  `isLost`). A bump increments `errors`; undo never refunds it, restart resets it. The model updates
   immediately; the renderer keeps exiting arrows alive as ghost animations, so players can tap
   quickly. Undo is a stack of `{ arrows, moves }` snapshots.
 
@@ -60,6 +65,11 @@ main.js ── wires everything; owns `state` (progress + settings), the current
 Arrows are added one by one at random empty cells (preferring long rays) and kept only if the
 board stays solvable. Several seeded attempts per level; the first that reaches `minDepth` wins,
 otherwise the most tangled one. Then neighbours get distinct colours.
+
+Picture levels pass a `mask` (flat 0/1 array): cells outside it are walled off during
+generation, coverage is measured against the mask, and attempts must also cover ≥ 85% of it
+so the figure reads. The renderer draws the board as the mask's silhouette. Rays still run
+to the real board edge, through the empty cells outside the picture.
 
 ### Rendering
 
@@ -92,7 +102,7 @@ otherwise the most tangled one. Then neighbours get distinct colours.
 
 ```bash
 python -m http.server 8000         # serve locally (ES modules need http://)
-node tools/check-levels.mjs 30     # verify levels: solvable, deterministic, well-formed
+node tools/check-levels.mjs 50     # verify levels: solvable, deterministic, well-formed
 ```
 
 Changing `LEVEL_COUNT` in `levels.js` adds levels; the curve keeps going and caps at 10×10.
