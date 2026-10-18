@@ -13,6 +13,7 @@ export function createUI(handlers) {
     undo: $('btn-undo'),
     hint: $('btn-hint'),
     restart: $('btn-restart'),
+    sound: $('btn-sound'),
     status: $('sr-status'),
   };
 
@@ -21,6 +22,7 @@ export function createUI(handlers) {
   el.undo.addEventListener('click', handlers.onUndo);
   el.hint.addEventListener('click', handlers.onHint);
   el.restart.addEventListener('click', handlers.onRestart);
+  el.sound.addEventListener('click', handlers.onToggleSound);
 
   document.addEventListener('keydown', (e) => {
     if (e.altKey || e.target.closest('input, dialog')) return;
@@ -46,6 +48,11 @@ export function createUI(handlers) {
 
     setUndo(enabled) {
       el.undo.disabled = !enabled;
+    },
+
+    setSound(on) {
+      el.sound.setAttribute('aria-pressed', String(!on));
+      el.sound.setAttribute('aria-label', on ? 'Silenciar sonido' : 'Activar sonido');
     },
 
     // Read out by screen readers.
