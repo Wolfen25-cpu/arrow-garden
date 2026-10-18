@@ -21,6 +21,14 @@ Si te quedas sin choques, el nivel vuelve a empezar y no pierdes nada más.
 - **24 figuras**: en los niveles 11, 15, 19… el tablero tiene forma de gato, corazón, casa, pez,
   conejo, flor, cohete, árbol, tortuga, estrella, lobo, paraguas, barco, búho, manzana, hongo,
   ancla, cactus, pájaro, luna, corona, fantasma o mariposa. El nivel 100 es un dragón.
+- **Dificultad visible**: cada nivel muestra si es fácil, medio, difícil o experto, en la barra
+  superior y con un punto de color en la cuadrícula.
+- **Flechas de doble punta** (desde el nivel 21): pueden salir por cualquiera de sus extremos.
+- **Obstáculos**: cuadros azules que desvían la flecha (desde el 31) y hoyos que se la tragan
+  (desde el 41).
+- **Niveles en cubo 3D** (14, 24 … 94): cada cara del cubo es una cuadrícula de flechas, y algunas
+  doblan por las aristas hacia la cara vecina. Arrastra (o usa las flechas del teclado) para
+  girar el cubo; cada flecha sale por el borde de la cara donde está su punta.
 - **Niveles con límite de choques**: a partir del 13, uno de cada cuatro niveles permite solo 3
   choques (2 desde el nivel 50, salvo en los expertos). Se ven como corazones junto al contador.
 - **Siempre hay solución**: el generador solo acepta un tablero si existe un orden válido para
@@ -123,12 +131,15 @@ index.html              Página y diálogos
 css/styles.css          Estilos y colores (claro/oscuro)
 js/main.js              Arranque: conecta todas las piezas
 js/game.js              Modelo del juego y solucionador
+js/game3d.js            Modelo y solucionador de los niveles en cubo
+js/generator3d.js       Generador de los niveles en cubo
 js/generator.js         Generador de niveles con solución garantizada
 js/levels.js            Curva de dificultad, niveles con figura y con límite de choques
 js/shapes.js            Figuras de los niveles con dibujo
 js/rng.js               Aleatoriedad con semilla (cada nivel es siempre igual)
 js/render.js            Dibujo en Canvas, animaciones y partículas
-js/input.js             Toques y clics
+js/render3d.js          Vista del cubo en Canvas (girable)
+js/input.js             Toques, clics y arrastre
 js/audio.js             Sonidos con Web Audio y vibración
 js/storage.js           Guardado en localStorage y combinación con la nube
 js/ui.js                Pantalla de inicio, botones, ajustes y nivel completado
