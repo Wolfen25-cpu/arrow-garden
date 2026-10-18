@@ -13,12 +13,14 @@ Si te quedas sin choques, el nivel vuelve a empezar y no pierdes nada más.
 - **Selector de niveles** en cuadrícula: completados en color, el actual resaltado y los
   bloqueados con candado.
 - **Tutorial interactivo** en un tablero de 3×3 que enseña a mover, a rebotar y las flechas con curva.
-- **50 niveles** generados proceduralmente, de 4×4 a 10×10. Las flechas son cada vez más
-  largas (1 a 4 celdas) y algunas tienen curva.
-- **Niveles con figura**: en los niveles 11, 15, 19… y en el 50, el tablero tiene forma de corazón,
-  casa, flor, pez, lobo, árbol, estrella, barco, hongo, luna o mariposa.
+- **100 niveles** generados proceduralmente, de 4×4 a 10×10. Los 10 primeros son sencillos para
+  aprender a jugar; a partir del 11 la dificultad se mezcla (fácil, media, difícil y experta) y los
+  niveles difíciles son cada vez más frecuentes.
+- **24 figuras**: en los niveles 11, 15, 19… el tablero tiene forma de gato, corazón, casa, pez,
+  conejo, flor, cohete, árbol, tortuga, estrella, lobo, paraguas, barco, búho, manzana, hongo,
+  ancla, cactus, pájaro, luna, corona, fantasma o mariposa. El nivel 100 es un dragón.
 - **Niveles con límite de choques**: a partir del 13, uno de cada cuatro niveles permite solo 3
-  choques (2 desde el nivel 37). Se ven como corazones junto al contador.
+  choques (2 desde el nivel 50, salvo en los expertos). Se ven como corazones junto al contador.
 - **Siempre hay solución**: el generador solo acepta un tablero si existe un orden válido para
   sacar todas las flechas.
 - **Deshacer, pista y reiniciar**. La pista resalta una flecha que puedes sacar ahora.
@@ -140,8 +142,8 @@ tools/check-levels.mjs  Verifica que todos los niveles tienen solución
 ## Comprobar los niveles
 
 ```bash
-node tools/check-levels.mjs 50
+node tools/check-levels.mjs 100
 ```
 
-Genera los niveles 1 a 50 y comprueba que todos tienen solución, que son deterministas y que las
+Genera los niveles 1 a 100 y comprueba que todos tienen solución, que son deterministas y que las
 flechas están bien formadas.

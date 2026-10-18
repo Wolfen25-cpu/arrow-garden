@@ -11,7 +11,7 @@ Arrow Garden (arrow-garden): a relaxing arrow puzzle for the browser, published 
   uses up a heart, and running out just restarts the same board. Keep limits rare and gentle.
   The tutorial never has a limit.
 - **Every generated level must be solvable.** Any generator change must keep `solve()` passing;
-  run `node tools/check-levels.mjs 50` before committing.
+  run `node tools/check-levels.mjs 100` before committing.
 - **Levels are deterministic**: level N always produces the same board (seeded RNG). Never use
   `Math.random()` in `generator.js`, `levels.js` or `game.js` (it is fine in `render.js` for particles).
 - **All user-facing text is in Spanish.** Code, identifiers and comments are in English.
@@ -32,8 +32,9 @@ main.js ── wires everything; owns `state` (progress + settings), the current
   │          completed (can be LEVEL_COUNT + 1), so completed = maxLevel - 1.
   ├─ tutorial.js ─── fixed 3×3 board + scripted steps (target arrow, expected result, text)
   ├─ generator.js ── generateLevel(n) → { level, size, arrows, depth, shape, mask, maxErrors }
-  │    ├─ levels.js   levelConfig(n): size, shape, maxErrors, arrow lengths, bend chance, fill,
-  │    │              min depth, seed
+  │    ├─ levels.js   levelConfig(n): size, shape, tier, maxErrors, arrow lengths, bend chance,
+  │    │              fill, min/max depth, seed. 1–10 intro; then a seeded tier per level
+  │    │              (easy | medium | hard | expert), harder tiers likelier towards the end
   │    ├─ shapes.js   ASCII pictures (heart, house, wolf…) → shapeMask(id, size)
   │    └─ rng.js      createRng(seed), hashSeed(...)
   ├─ game.js ─────── pure model (no DOM): Game, solve(), freeArrows(), rayCells(), DIRS
@@ -63,8 +64,8 @@ main.js ── wires everything; owns `state` (progress + settings), the current
 ### Generator
 
 Arrows are added one by one at random empty cells (preferring long rays) and kept only if the
-board stays solvable. Several seeded attempts per level; the first that reaches `minDepth` wins,
-otherwise the most tangled one. Then neighbours get distinct colours.
+board stays solvable and its depth stays ≤ `maxDepth` (keeps easy levels easy). Several seeded
+attempts per level; the first within `minDepth`–`maxDepth` wins, otherwise the best fit. Then neighbours get distinct colours.
 
 Picture levels pass a `mask` (flat 0/1 array): cells outside it are walled off during
 generation, coverage is measured against the mask, and attempts must also cover ≥ 85% of it
@@ -102,7 +103,7 @@ to the real board edge, through the empty cells outside the picture.
 
 ```bash
 python -m http.server 8000         # serve locally (ES modules need http://)
-node tools/check-levels.mjs 50     # verify levels: solvable, deterministic, well-formed
+node tools/check-levels.mjs 100    # verify levels: solvable, deterministic, well-formed
 ```
 
 Changing `LEVEL_COUNT` in `levels.js` adds levels; the curve keeps going and caps at 10×10.
