@@ -25,7 +25,9 @@ Arrow Garden (arrow-garden): a relaxing arrow puzzle for the browser, published 
 
 ```
 main.js ── wires everything; owns `state` (progress + settings), the current `Game`
-  │          and `mode`: 'home' (start screen) | 'play' | 'tutorial'
+  │          and `mode`: 'home' (start screen) | 'levels' (level grid) | 'play' | 'tutorial'
+  │          Flow: Inicio → Jugar → Niveles → level. `maxLevel` is the first level not yet
+  │          completed (can be LEVEL_COUNT + 1), so completed = maxLevel - 1.
   ├─ tutorial.js ─── fixed 3×3 board + scripted steps (target arrow, expected result, text)
   ├─ generator.js ── generateLevel(n) → { level, size, arrows, depth }
   │    ├─ levels.js   levelConfig(n): size, arrow lengths, bend chance, fill, min depth, seed

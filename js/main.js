@@ -1,5 +1,6 @@
 // Entry point: wires the game model, renderer, input, audio and UI together.
-// The app is in one of three modes: 'home' (start screen), 'play' or 'tutorial'.
+// The app is in one of four modes: 'home' (start screen), 'levels' (level select),
+// 'play' or 'tutorial'.
 
 import { Game } from './game.js';
 import { generateLevel } from './generator.js';
@@ -27,7 +28,9 @@ let cloudStart = null;
 let pushTimer = 0;
 
 const ui = createUI({
-  onPlay: play,
+  onPlay: showLevels,
+  onLevels: showLevels,
+  onPickLevel: openLevel,
   onTutorial: startTutorial,
   onHome: goHome,
   onAccount: () => account.open(),
@@ -55,9 +58,24 @@ function goHome() {
   ui.showHome({ level: state.level, tutorialDone: state.tutorialDone });
 }
 
-function play() {
+// `maxLevel` is the first level not yet completed, so it can reach LEVEL_COUNT + 1.
+function showLevels() {
+  mode = 'levels';
+  clearTimeout(winTimer);
+  ui.hideWin();
+  renderer.clearHint();
+  ui.showLevels({
+    total: LEVEL_COUNT,
+    unlocked: Math.min(state.maxLevel, LEVEL_COUNT),
+    completed: state.maxLevel - 1,
+    current: state.level,
+  });
+}
+
+// Picking the level that is still in progress resumes it instead of starting over.
+function openLevel(level) {
   sound.unlock();
-  const resume = mode === 'home' && game && game.level === state.level && !game.isWon;
+  const resume = game && game.level === level && !game.isWon && game.moves > 0;
   mode = 'play';
   ui.setTutorial(false);
   ui.showGame();
@@ -65,7 +83,7 @@ function play() {
     renderer.requestDraw();
     refresh();
   } else {
-    startLevel(state.level);
+    startLevel(level);
   }
 }
 
@@ -119,8 +137,7 @@ function advanceTutorial(result) {
 function endTutorial() {
   state.tutorialDone = true;
   persist();
-  mode = 'home'; // so play() starts the real level instead of resuming the tutorial board
-  play();
+  openLevel(state.level);
 }
 
 // ---------- Saving ----------
@@ -161,6 +178,7 @@ async function onUserChange(user) {
       persist();
       refresh();
       if (mode === 'home') ui.showHome({ level: state.level, tutorialDone: state.tutorialDone });
+      if (mode === 'levels') showLevels();
     }
     await pushNow();
   } catch (err) {
@@ -238,7 +256,7 @@ function handleTap(cell) {
 }
 
 function completeLevel() {
-  state.maxLevel = Math.max(state.maxLevel, Math.min(state.level + 1, LEVEL_COUNT));
+  state.maxLevel = Math.max(state.maxLevel, state.level + 1);
   state.progressAt = Date.now();
   // Save as if already on the next level, so a reload continues from there.
   const current = state.level;

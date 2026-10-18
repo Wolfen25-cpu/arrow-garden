@@ -58,10 +58,21 @@
     </nav>
   </section>
 
+  <section class="levels" id="levels" hidden aria-labelledby="levels-title">
+    <header class="levels-head">
+      <button class="icon-btn" id="btn-levels-back" type="button" aria-label="Volver al inicio">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <h2 id="levels-title">Niveles</h2>
+    </header>
+    <p class="levels-summary" id="levels-summary"></p>
+    <ol class="level-grid" id="level-grid"></ol>
+  </section>
+
   <div class="app" id="app" hidden>
     <header class="topbar">
-      <button class="icon-btn" id="btn-home" type="button" aria-label="Volver al inicio">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/></svg>
+      <button class="icon-btn" id="btn-to-levels" type="button" aria-label="Elegir nivel">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>
       </button>
       <div class="level-nav">
         <button class="icon-btn" id="btn-prev" type="button" aria-label="Nivel anterior">
@@ -114,6 +125,7 @@
       <h2 id="win-title">¡Nivel completado!</h2>
       <p id="win-detail">0 movimientos</p>
       <button class="primary" id="btn-win-next" type="button">Siguiente nivel</button>
+      <button class="link win-levels" id="btn-win-levels" type="button">Ver niveles</button>
     </div>
   </div>
 

@@ -466,6 +466,108 @@ svg {
   50% { transform: scale(1.06); opacity: 0.12; }
 }
 
+/* ---------- Level select ---------- */
+
+.levels {
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+
+.levels-head {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+}
+
+.levels-head h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.levels-summary {
+  margin: 4px 0 20px;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.level-tile {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.3s ease;
+  animation: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.level-tile:active {
+  transform: scale(0.94);
+}
+
+/* Completed levels wear a pastel colour, like the arrows. */
+.level-tile[data-state="done"] {
+  background: var(--tone);
+  color: #3a3847;
+}
+
+.level-tile[data-tone="0"] { --tone: #ef8f86; }
+.level-tile[data-tone="1"] { --tone: #f3a76a; }
+.level-tile[data-tone="2"] { --tone: #e6bf4f; }
+.level-tile[data-tone="3"] { --tone: #86c77f; }
+.level-tile[data-tone="4"] { --tone: #4fbfae; }
+.level-tile[data-tone="5"] { --tone: #62aee6; }
+.level-tile[data-tone="6"] { --tone: #8695ec; }
+.level-tile[data-tone="7"] { --tone: #ac88e6; }
+
+.level-tile .tile-check {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 16px;
+  height: 16px;
+  stroke-width: 3;
+}
+
+.level-tile.is-current {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--accent);
+}
+
+.level-tile[data-state="locked"] {
+  border: 2px dashed var(--surface-2);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-soft);
+  cursor: default;
+  transform: none;
+}
+
+.level-tile[data-state="locked"] svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* ---------- Tutorial coach ---------- */
 
 .coach {
@@ -538,6 +640,11 @@ svg {
   min-height: 52px;
   padding: 0 32px;
   font-size: 1.05rem;
+}
+
+.win-levels {
+  display: block;
+  margin: 8px auto 0;
 }
 
 .win-petals {

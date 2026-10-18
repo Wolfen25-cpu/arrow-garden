@@ -9,6 +9,8 @@ Sin temporizador, sin vidas, sin prisa.
 ## Características
 
 - **Pantalla de inicio** con Jugar, Tutorial, Ajustes y Cuenta.
+- **Selector de niveles** en cuadrícula: completados en color, el actual resaltado y los
+  bloqueados con candado.
 - **Tutorial interactivo** en un tablero de 3×3 que enseña a mover, a rebotar y las flechas con curva.
 - **10 niveles** generados proceduralmente, de 4×4 a 10×10. Las flechas son cada vez más
   largas (1 a 4 celdas) y algunas tienen curva.
