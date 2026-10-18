@@ -14,9 +14,11 @@ export const DEFAULTS = {
   settingsAt: 0,
   account: false, // signed in last time: reconnect to the cloud on startup
   tutorialDone: false,
+  lang: 'es', // device-only, not synced (cloud documents would need a rules change)
 };
 
 const THEMES = ['auto', 'light', 'dark'];
+const LANGS = ['es', 'en'];
 
 // Accepts anything (stored JSON, cloud data) and returns a well-formed state.
 export function sanitize(raw) {
@@ -36,6 +38,7 @@ export function sanitize(raw) {
     settingsAt: time(data.settingsAt),
     account: bool(data.account, DEFAULTS.account),
     tutorialDone: bool(data.tutorialDone, DEFAULTS.tutorialDone),
+    lang: LANGS.includes(data.lang) ? data.lang : DEFAULTS.lang,
   };
 }
 

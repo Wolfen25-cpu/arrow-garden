@@ -1,9 +1,9 @@
 // Picture levels: only the '#' cells of a shape can hold arrows, so the
 // filled board draws the figure. Rows must all be the same width.
+// Display names live in i18n.js (`shape.<id>`).
 
 const SHAPES = {
   heart: {
-    name: 'Corazón',
     rows: [
       '.##....##.',
       '####..####',
@@ -17,7 +17,6 @@ const SHAPES = {
     ],
   },
   house: {
-    name: 'Casa',
     rows: [
       '....##....',
       '...####...',
@@ -32,7 +31,6 @@ const SHAPES = {
     ],
   },
   flower: {
-    name: 'Flor',
     rows: [
       '....##....',
       '...####...',
@@ -47,7 +45,6 @@ const SHAPES = {
     ],
   },
   fish: {
-    name: 'Pez',
     rows: [
       '...###...#',
       '.######.##',
@@ -58,7 +55,6 @@ const SHAPES = {
     ],
   },
   wolf: {
-    name: 'Lobo',
     rows: [
       '#........#',
       '##......##',
@@ -73,7 +69,6 @@ const SHAPES = {
     ],
   },
   tree: {
-    name: 'Árbol',
     rows: [
       '....##....',
       '...####...',
@@ -88,7 +83,6 @@ const SHAPES = {
     ],
   },
   star: {
-    name: 'Estrella',
     rows: [
       '....##....',
       '....##....',
@@ -103,7 +97,6 @@ const SHAPES = {
     ],
   },
   boat: {
-    name: 'Barco',
     rows: [
       '....#.....',
       '....##....',
@@ -117,7 +110,6 @@ const SHAPES = {
     ],
   },
   mushroom: {
-    name: 'Hongo',
     rows: [
       '...####...',
       '.########.',
@@ -132,7 +124,6 @@ const SHAPES = {
     ],
   },
   moon: {
-    name: 'Luna',
     rows: [
       '...####...',
       '.#####....',
@@ -147,7 +138,6 @@ const SHAPES = {
     ],
   },
   butterfly: {
-    name: 'Mariposa',
     rows: [
       '##......##',
       '####..####',
@@ -161,7 +151,6 @@ const SHAPES = {
     ],
   },
   cat: {
-    name: 'Gato',
     rows: [
       '.#...#....',
       '.##.##....',
@@ -176,7 +165,6 @@ const SHAPES = {
     ],
   },
   dragon: {
-    name: 'Dragón',
     rows: [
       '.#.#..#...',
       '.###..##..',
@@ -191,7 +179,6 @@ const SHAPES = {
     ],
   },
   rabbit: {
-    name: 'Conejo',
     rows: [
       '..##..##..',
       '..##..##..',
@@ -205,7 +192,6 @@ const SHAPES = {
     ],
   },
   turtle: {
-    name: 'Tortuga',
     rows: [
       '....##....',
       '....##....',
@@ -219,7 +205,6 @@ const SHAPES = {
     ],
   },
   rocket: {
-    name: 'Cohete',
     rows: [
       '....##....',
       '...####...',
@@ -234,7 +219,6 @@ const SHAPES = {
     ],
   },
   anchor: {
-    name: 'Ancla',
     rows: [
       '...####...',
       '...#..#...',
@@ -249,7 +233,6 @@ const SHAPES = {
     ],
   },
   umbrella: {
-    name: 'Paraguas',
     rows: [
       '....##....',
       '..######..',
@@ -264,7 +247,6 @@ const SHAPES = {
     ],
   },
   crown: {
-    name: 'Corona',
     rows: [
       '#...##...#',
       '##.####.##',
@@ -275,7 +257,6 @@ const SHAPES = {
     ],
   },
   owl: {
-    name: 'Búho',
     rows: [
       '##......##',
       '###....###',
@@ -290,7 +271,6 @@ const SHAPES = {
     ],
   },
   apple: {
-    name: 'Manzana',
     rows: [
       '.....###..',
       '....##....',
@@ -305,7 +285,6 @@ const SHAPES = {
     ],
   },
   cactus: {
-    name: 'Cactus',
     rows: [
       '....##....',
       '.#..##....',
@@ -320,7 +299,6 @@ const SHAPES = {
     ],
   },
   bird: {
-    name: 'Pájaro',
     rows: [
       '..##......',
       '.####.....',
@@ -335,7 +313,6 @@ const SHAPES = {
     ],
   },
   ghost: {
-    name: 'Fantasma',
     rows: [
       '...####...',
       '.########.',
@@ -352,8 +329,6 @@ const SHAPES = {
 };
 
 export const SHAPE_IDS = Object.keys(SHAPES);
-
-export const shapeName = (id) => SHAPES[id]?.name ?? '';
 
 // The shape centred on a size×size board, as a flat 0/1 array (row-major).
 export function shapeMask(id, size) {

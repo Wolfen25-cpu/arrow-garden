@@ -5,7 +5,7 @@
 import { Game } from './game.js';
 import { generateLevel } from './generator.js';
 import { LEVEL_COUNT, levelConfig } from './levels.js';
-import { shapeName } from './shapes.js';
+import { setLang, shapeName, t } from './i18n.js';
 import { Renderer } from './render.js';
 import { attachInput } from './input.js';
 import { Sound, vibrate } from './audio.js';
@@ -44,6 +44,7 @@ const ui = createUI({
   onSettingsChange: changeSettings,
   onWinNext: () => startLevel(nextLevel()),
   onRetry: retry,
+  onLanguage: changeLanguage,
 });
 
 const account = setupAccount({ ensureCloud });
@@ -110,8 +111,8 @@ function startLevel(level) {
 function introduceLevel() {
   const label = shapeName(game.shape);
   let text = '';
-  if (game.maxErrors) text = `Cuidado: este nivel solo permite ${game.maxErrors} choques.`;
-  else if (label) text = `Nivel con figura: ${label}`;
+  if (game.maxErrors) text = t('game.noticeLimit', { n: game.maxErrors });
+  else if (label) text = t('game.noticePicture', { name: label });
   ui.notice(text);
   if (text) ui.announce(text);
 }
@@ -200,7 +201,7 @@ async function onUserChange(user) {
     await pushNow();
   } catch (err) {
     console.warn('Cloud sync failed', err);
-    account.setStatus('No se pudo sincronizar ahora. Se intentará de nuevo al avanzar.', true);
+    account.setStatus(t('account.syncFailed'), true);
   }
 }
 
@@ -235,6 +236,25 @@ function applyTheme() {
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]').content = dark ? '#1d2030' : '#f4ede1';
   renderer.readTheme();
+}
+
+// ---------- Language ----------
+
+// Device-only setting: it is saved locally but never pushed to the cloud.
+function changeLanguage(lang) {
+  state.lang = lang;
+  saveState(state);
+  applyLanguage();
+}
+
+// Redraws every text on screen in the current language.
+function applyLanguage() {
+  setLang(state.lang);
+  ui.translate();
+  account.translate();
+  if (mode === 'home') ui.showHome({ level: state.level, tutorialDone: state.tutorialDone });
+  if (mode === 'levels') showLevels();
+  refresh();
 }
 
 // ---------- Play ----------
@@ -286,8 +306,8 @@ function completeLevel() {
   // Let the last arrow finish leaving before celebrating.
   winTimer = setTimeout(() => {
     sound.win();
-    ui.showWin({ moves: game.moves, isLast, shapeLabel: shapeName(game.shape) });
-    ui.announce(isLast ? '¡Has completado todos los niveles!' : `¡Nivel ${state.level} completado!`);
+    ui.showWin({ moves: game.moves, isLast, shape: game.shape });
+    ui.announce(isLast ? t('win.announceLast') : t('win.announce', { n: state.level }));
   }, renderer.calm ? 150 : 700);
 }
 
@@ -298,7 +318,7 @@ function loseLevel() {
   winTimer = setTimeout(() => {
     sound.lose();
     ui.showLose({ maxErrors: game.maxErrors });
-    ui.announce('Se acabaron los choques. Puedes intentarlo de nuevo.');
+    ui.announce(t('lose.announce'));
   }, renderer.calm ? 150 : 600);
 }
 
@@ -342,6 +362,8 @@ document.addEventListener('visibilitychange', () => {
 });
 
 attachInput(canvas, renderer, handleTap);
+setLang(state.lang);
+ui.translate();
 applySettings();
 goHome();
 

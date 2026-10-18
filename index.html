@@ -25,45 +25,50 @@
       <svg class="deco deco-6" viewBox="0 0 64 28"><path class="deco-shaft" d="M8 14h32"/><path class="deco-head" d="M40 5l16 9-16 9z"/></svg>
     </div>
 
+    <button class="lang-btn" id="btn-lang" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg>
+      <span id="lang-label">English</span>
+    </button>
+
     <div class="home-head">
       <svg class="home-logo" viewBox="0 0 64 64" aria-hidden="true">
         <path class="logo-shaft" d="M14 52V28a10 10 0 0 1 10-10h16"/>
         <path class="logo-head" d="M40 7l17 11-17 11z"/>
       </svg>
       <h1 id="home-title">Arrow Garden</h1>
-      <p class="tagline">Un puzzle relajante de flechas</p>
+      <p class="tagline" data-i18n="home.tagline">Un puzzle relajante de flechas</p>
     </div>
 
     <div class="home-center">
       <button class="play-btn" id="btn-play" type="button" aria-describedby="home-progress">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
-        <span>Jugar</span>
+        <span data-i18n="home.play">Jugar</span>
       </button>
       <p class="home-progress" id="home-progress">Empieza en el nivel 1</p>
     </div>
 
-    <nav class="home-menu" aria-label="Menú principal">
+    <nav class="home-menu" aria-label="Menú principal" data-i18n-aria="home.menu">
       <button class="menu-btn" id="btn-tutorial" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4"/><path d="M12 17h.01"/></svg>
-        <span>Tutorial</span>
+        <span data-i18n="home.tutorial">Tutorial</span>
       </button>
       <button class="menu-btn" id="btn-home-settings" type="button" aria-haspopup="dialog">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9"/><path d="M19 6h1"/><path d="M4 12h3"/><path d="M13 12h7"/><path d="M4 18h11"/><circle cx="16" cy="6" r="2.5"/><circle cx="10" cy="12" r="2.5"/><circle cx="18" cy="18" r="2.5"/></svg>
-        <span>Ajustes</span>
+        <span data-i18n="home.settings">Ajustes</span>
       </button>
       <button class="menu-btn" id="btn-home-account" type="button" aria-haspopup="dialog">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-        <span>Cuenta</span>
+        <span data-i18n="home.account">Cuenta</span>
       </button>
     </nav>
   </section>
 
   <section class="levels" id="levels" hidden aria-labelledby="levels-title">
     <header class="levels-head">
-      <button class="icon-btn" id="btn-levels-back" type="button" aria-label="Volver al inicio">
+      <button class="icon-btn" id="btn-levels-back" type="button" aria-label="Volver al inicio" data-i18n-aria="levels.back">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
       </button>
-      <h2 id="levels-title">Niveles</h2>
+      <h2 id="levels-title" data-i18n="levels.title">Niveles</h2>
     </header>
     <p class="levels-summary" id="levels-summary"></p>
     <ol class="level-grid" id="level-grid"></ol>
@@ -71,11 +76,11 @@
 
   <div class="app" id="app" hidden>
     <header class="topbar">
-      <button class="icon-btn" id="btn-to-levels" type="button" aria-label="Elegir nivel">
+      <button class="icon-btn" id="btn-to-levels" type="button" aria-label="Elegir nivel" data-i18n-aria="game.toLevels">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>
       </button>
       <div class="level-nav">
-        <button class="icon-btn" id="btn-prev" type="button" aria-label="Nivel anterior">
+        <button class="icon-btn" id="btn-prev" type="button" aria-label="Nivel anterior" data-i18n-aria="game.prev">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <div class="level-info">
@@ -85,40 +90,40 @@
             <p class="lives" id="lives-label" role="img" hidden></p>
           </div>
         </div>
-        <button class="icon-btn" id="btn-next" type="button" aria-label="Nivel siguiente">
+        <button class="icon-btn" id="btn-next" type="button" aria-label="Nivel siguiente" data-i18n-aria="game.next">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
-      <button class="icon-btn" id="btn-settings" type="button" aria-label="Ajustes" aria-haspopup="dialog">
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="Ajustes" aria-haspopup="dialog" data-i18n-aria="home.settings">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9"/><path d="M19 6h1"/><path d="M4 12h3"/><path d="M13 12h7"/><path d="M4 18h11"/><circle cx="16" cy="6" r="2.5"/><circle cx="10" cy="12" r="2.5"/><circle cx="18" cy="18" r="2.5"/></svg>
       </button>
     </header>
 
     <main class="stage">
-      <canvas id="board" role="img" aria-label="Tablero de flechas. Toca una flecha para deslizarla fuera."></canvas>
+      <canvas id="board" role="img" aria-label="Tablero de flechas. Toca una flecha para deslizarla fuera." data-i18n-aria="game.board"></canvas>
       <p class="notice" id="level-notice" hidden></p>
     </main>
 
-    <nav class="controls" id="controls" aria-label="Controles del nivel">
+    <nav class="controls" id="controls" aria-label="Controles del nivel" data-i18n-aria="game.controls">
       <button class="ctrl" id="btn-undo" type="button" aria-keyshortcuts="Z">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
-        <span>Deshacer</span>
+        <span data-i18n="game.undo">Deshacer</span>
       </button>
       <button class="ctrl" id="btn-hint" type="button" aria-keyshortcuts="H">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg>
-        <span>Pista</span>
+        <span data-i18n="game.hint">Pista</span>
       </button>
       <button class="ctrl" id="btn-restart" type="button" aria-keyshortcuts="R">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-        <span>Reiniciar</span>
+        <span data-i18n="game.restart">Reiniciar</span>
       </button>
     </nav>
 
     <div class="coach" id="coach" hidden>
       <p id="coach-text" aria-live="polite"></p>
       <div class="coach-actions">
-        <button class="link" id="btn-coach-skip" type="button">Saltar tutorial</button>
-        <button class="primary" id="btn-coach-done" type="button" hidden>Empezar a jugar</button>
+        <button class="link" id="btn-coach-skip" type="button" data-i18n="coach.skip">Saltar tutorial</button>
+        <button class="primary" id="btn-coach-done" type="button" hidden data-i18n="coach.done">Empezar a jugar</button>
       </div>
     </div>
   </div>
@@ -129,75 +134,82 @@
       <h2 id="win-title">¡Nivel completado!</h2>
       <p id="win-detail">0 movimientos</p>
       <button class="primary" id="btn-win-next" type="button">Siguiente nivel</button>
-      <button class="link win-levels" id="btn-win-levels" type="button">Ver niveles</button>
+      <button class="link win-levels" id="btn-win-levels" type="button" data-i18n="win.levels">Ver niveles</button>
     </div>
   </div>
 
   <dialog class="sheet" id="settings" aria-labelledby="settings-title">
     <div class="sheet-head">
-      <h2 id="settings-title">Ajustes</h2>
-      <button class="icon-btn" type="button" data-close aria-label="Cerrar">
+      <h2 id="settings-title" data-i18n="settings.title">Ajustes</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar" data-i18n-aria="settings.close">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>
       </button>
     </div>
     <div class="row">
-      <span id="lbl-sound">Sonido</span>
+      <span id="lbl-sound" data-i18n="settings.sound">Sonido</span>
       <button class="switch" id="sw-sound" type="button" role="switch" aria-checked="true" aria-labelledby="lbl-sound"></button>
     </div>
     <div class="row">
-      <span id="lbl-vibration">Vibración</span>
+      <span id="lbl-vibration" data-i18n="settings.vibration">Vibración</span>
       <button class="switch" id="sw-vibration" type="button" role="switch" aria-checked="true" aria-labelledby="lbl-vibration"></button>
     </div>
     <div class="row">
-      <span id="lbl-moves">Mostrar movimientos</span>
+      <span id="lbl-moves" data-i18n="settings.moves">Mostrar movimientos</span>
       <button class="switch" id="sw-moves" type="button" role="switch" aria-checked="true" aria-labelledby="lbl-moves"></button>
     </div>
     <div class="row">
-      <span id="lbl-theme">Tema</span>
+      <span id="lbl-theme" data-i18n="settings.theme">Tema</span>
       <div class="segmented" role="radiogroup" aria-labelledby="lbl-theme">
-        <label><input type="radio" name="theme" value="auto"><span>Auto</span></label>
-        <label><input type="radio" name="theme" value="light"><span>Claro</span></label>
-        <label><input type="radio" name="theme" value="dark"><span>Oscuro</span></label>
+        <label><input type="radio" name="theme" value="auto"><span data-i18n="settings.auto">Auto</span></label>
+        <label><input type="radio" name="theme" value="light"><span data-i18n="settings.light">Claro</span></label>
+        <label><input type="radio" name="theme" value="dark"><span data-i18n="settings.dark">Oscuro</span></label>
+      </div>
+    </div>
+    <div class="row">
+      <span id="lbl-lang" data-i18n="settings.language">Idioma</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="lbl-lang">
+        <label><input type="radio" name="lang" value="es"><span lang="es">Español</span></label>
+        <label><input type="radio" name="lang" value="en"><span lang="en">English</span></label>
       </div>
     </div>
     <div class="row" id="account-row" hidden>
-      <span id="account-summary">Cuenta</span>
-      <button class="secondary" id="btn-account" type="button" aria-haspopup="dialog">Iniciar sesión</button>
+      <span id="account-summary" data-i18n="home.account">Cuenta</span>
+      <button class="secondary" id="btn-account" type="button" aria-haspopup="dialog" data-i18n="account.signIn">Iniciar sesión</button>
     </div>
-    <p class="note" id="save-note">Tu progreso se guarda en este dispositivo.</p>
+    <p class="note" id="save-note" data-i18n="settings.saveLocal">Tu progreso se guarda en este dispositivo.</p>
   </dialog>
 
   <dialog class="sheet" id="account" aria-labelledby="account-title">
     <div class="sheet-head">
-      <h2 id="account-title">Cuenta</h2>
-      <button class="icon-btn" type="button" data-close aria-label="Cerrar">
+      <h2 id="account-title" data-i18n="account.title">Cuenta</h2>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar" data-i18n-aria="settings.close">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>
       </button>
     </div>
-    <p class="note" id="account-unavailable" hidden>Las cuentas todavía no están activadas. Mientras tanto, tu progreso se guarda en este dispositivo.</p>
+    <p class="note" id="account-unavailable" hidden data-i18n="account.unavailable">Las cuentas todavía no están activadas. Mientras tanto, tu progreso se guarda en este dispositivo.</p>
     <div id="account-signed-out">
-      <p class="note">Crea una cuenta gratis para guardar tu progreso y seguir jugando en cualquier dispositivo.</p>
-      <button class="secondary wide" id="btn-google" type="button">Continuar con Google</button>
-      <div class="divider"><span>o con tu correo</span></div>
+      <p class="note" data-i18n="account.intro">Crea una cuenta gratis para guardar tu progreso y seguir jugando en cualquier dispositivo.</p>
+      <button class="secondary wide" id="btn-google" type="button" data-i18n="account.google">Continuar con Google</button>
+      <div class="divider"><span data-i18n="account.orEmail">o con tu correo</span></div>
       <!-- method="dialog" never sends data over the network, even if JS fails to load. -->
       <form id="email-form" method="dialog" novalidate>
-        <label class="field">Correo
+        <label class="field"><span data-i18n="account.email">Correo</span>
           <input type="email" name="email" autocomplete="email" required>
         </label>
-        <label class="field">Contraseña
+        <label class="field"><span data-i18n="account.password">Contraseña</span>
           <input type="password" name="password" autocomplete="current-password" minlength="6" required>
         </label>
         <div class="form-actions">
-          <button class="primary" type="submit" value="signin">Entrar</button>
-          <button class="secondary" type="submit" value="signup">Crear cuenta</button>
+          <button class="primary" type="submit" value="signin" data-i18n="account.enter">Entrar</button>
+          <button class="secondary" type="submit" value="signup" data-i18n="account.create">Crear cuenta</button>
         </div>
-        <button class="link" id="btn-reset" type="button">¿Olvidaste tu contraseña?</button>
+        <button class="link" id="btn-reset" type="button" data-i18n="account.forgot">¿Olvidaste tu contraseña?</button>
       </form>
     </div>
     <div id="account-signed-in" hidden>
-      <p>Sesión iniciada como <strong id="account-email"></strong>.</p>
-      <p class="note">Tu progreso se sincroniza automáticamente entre tus dispositivos.</p>
-      <button class="secondary wide" id="btn-signout" type="button">Cerrar sesión</button>
+      <p><span data-i18n="account.signedInAs">Sesión iniciada como</span> <strong id="account-email"></strong>.</p>
+      <p class="note" data-i18n="account.syncNote">Tu progreso se sincroniza automáticamente entre tus dispositivos.</p>
+      <button class="secondary wide" id="btn-signout" type="button" data-i18n="account.signOut">Cerrar sesión</button>
     </div>
     <p class="form-message" id="account-message" role="status" aria-live="polite"></p>
   </dialog>

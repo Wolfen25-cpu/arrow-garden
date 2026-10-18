@@ -3,6 +3,7 @@
 // open "Cuenta" never load it, and the game works fully without it.
 
 import { firebaseConfig } from './firebase-config.js';
+import { getLang } from './i18n.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2';
 
@@ -24,8 +25,13 @@ async function load() {
   ]);
   const instance = app.initializeApp(firebaseConfig);
   fb = { authApi: auth, storeApi: store, auth: auth.getAuth(instance), db: store.getFirestore(instance) };
-  fb.auth.languageCode = 'es';
+  fb.auth.languageCode = getLang();
   return fb;
+}
+
+// Sign-in popups and password emails follow the game's language.
+export function setLanguage() {
+  if (fb) fb.auth.languageCode = getLang();
 }
 
 // Loads the SDK and reports the signed-in user now and on every change.

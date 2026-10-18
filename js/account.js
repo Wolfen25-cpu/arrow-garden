@@ -1,26 +1,32 @@
 // Account dialog: sign in / sign up / sign out. Talks to cloud.js; main.js owns syncing.
 
 import * as cloud from './cloud.js';
+import { t } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
+// Firebase error code → i18n key ('' means stay quiet, e.g. the user closed the popup).
 const ERRORS = {
-  'auth/invalid-email': 'El correo no es válido.',
-  'auth/missing-password': 'Escribe tu contraseña.',
-  'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
-  'auth/email-already-in-use': 'Ya existe una cuenta con ese correo. Prueba a entrar.',
-  'auth/invalid-credential': 'Correo o contraseña incorrectos.',
-  'auth/wrong-password': 'Correo o contraseña incorrectos.',
-  'auth/user-not-found': 'Correo o contraseña incorrectos.',
-  'auth/too-many-requests': 'Demasiados intentos. Espera un momento y vuelve a probar.',
-  'auth/network-request-failed': 'Sin conexión. Revisa tu internet e inténtalo de nuevo.',
-  'auth/unauthorized-domain': 'Este sitio no está autorizado en Firebase (revisa los dominios autorizados).',
-  'auth/operation-not-allowed': 'Este método de inicio de sesión no está activado.',
+  'auth/invalid-email': 'error.invalidEmail',
+  'auth/missing-password': 'error.missingPassword',
+  'auth/weak-password': 'error.weakPassword',
+  'auth/email-already-in-use': 'error.emailInUse',
+  'auth/invalid-credential': 'error.badCredentials',
+  'auth/wrong-password': 'error.badCredentials',
+  'auth/user-not-found': 'error.badCredentials',
+  'auth/too-many-requests': 'error.tooMany',
+  'auth/network-request-failed': 'error.network',
+  'auth/unauthorized-domain': 'error.domain',
+  'auth/operation-not-allowed': 'error.notAllowed',
   'auth/popup-closed-by-user': '',
   'auth/cancelled-popup-request': '',
 };
 
-const errorText = (err) => ERRORS[err?.code] ?? 'Algo salió mal. Inténtalo de nuevo.';
+const errorText = (err) => {
+  const key = ERRORS[err?.code];
+  if (key === '') return '';
+  return t(key ?? 'error.generic');
+};
 
 export function setupAccount({ ensureCloud }) {
   const el = {
@@ -51,14 +57,14 @@ export function setupAccount({ ensureCloud }) {
     say('');
     el.dialog.showModal();
     // Start loading Firebase now so the Google popup can open instantly on click.
-    if (cloud.cloudEnabled) ensureCloud().catch(() => say(ERRORS['auth/network-request-failed'], true));
+    if (cloud.cloudEnabled) ensureCloud().catch(() => say(t('error.network'), true));
   };
 
   // Without a Firebase config the dialog just explains that accounts are not set up yet.
   if (!cloud.cloudEnabled) {
     el.signedOut.hidden = true;
     el.unavailable.hidden = false;
-    return { open, setUser() {}, setStatus() {} };
+    return { open, setUser() {}, setStatus() {}, translate() {} };
   }
   el.row.hidden = false;
 
@@ -71,7 +77,7 @@ export function setupAccount({ ensureCloud }) {
     say('');
     try {
       await task();
-      say(success);
+      say(typeof success === 'function' ? success() : success);
     } catch (err) {
       say(errorText(err), true);
     } finally {
@@ -83,7 +89,7 @@ export function setupAccount({ ensureCloud }) {
 
   el.google.addEventListener('click', () => {
     if (!cloud.isReady()) {
-      say('Cargando… vuelve a tocar en un momento.');
+      say(t('account.loading'));
       return;
     }
     run(() => cloud.signInWithGoogle());
@@ -94,8 +100,8 @@ export function setupAccount({ ensureCloud }) {
     const action = e.submitter?.value === 'signup' ? 'signup' : 'signin';
     const email = el.form.email.value.trim();
     const password = el.form.password.value;
-    if (!el.form.email.checkValidity()) return say(ERRORS['auth/invalid-email'], true);
-    if (password.length < 6) return say(ERRORS['auth/weak-password'], true);
+    if (!el.form.email.checkValidity()) return say(t('error.invalidEmail'), true);
+    if (password.length < 6) return say(t('error.weakPassword'), true);
     run(async () => {
       await ensureCloud();
       await (action === 'signup' ? cloud.signUp(email, password) : cloud.signIn(email, password));
@@ -105,31 +111,40 @@ export function setupAccount({ ensureCloud }) {
 
   el.reset.addEventListener('click', () => {
     const email = el.form.email.value.trim();
-    if (!email || !el.form.email.checkValidity()) return say('Escribe tu correo arriba y vuelve a tocar aquí.', true);
+    if (!email || !el.form.email.checkValidity()) return say(t('account.resetNeedsEmail'), true);
     run(async () => {
       await ensureCloud();
       await cloud.resetPassword(email);
-    }, 'Si existe una cuenta con ese correo, te enviamos un enlace para cambiar la contraseña.');
+    }, () => t('account.resetSent'));
   });
 
   el.signOut.addEventListener('click', () => run(() => cloud.signOut()));
 
-  return {
+  let current = null;
+
+  const account = {
     open,
 
     setUser(user) {
+      current = user;
       el.signedOut.hidden = Boolean(user);
       el.signedIn.hidden = !user;
       el.email.textContent = user ? user.email || user.name : '';
-      el.summary.textContent = user ? 'Cuenta conectada' : 'Cuenta';
-      el.open.textContent = user ? 'Ver cuenta' : 'Iniciar sesión';
-      el.note.textContent = user
-        ? 'Tu progreso se guarda en este dispositivo y en tu cuenta.'
-        : 'Tu progreso se guarda en este dispositivo.';
+      el.summary.textContent = t(user ? 'account.connected' : 'home.account');
+      el.open.textContent = t(user ? 'account.view' : 'account.signIn');
+      el.note.textContent = t(user ? 'settings.saveCloud' : 'settings.saveLocal');
+    },
+
+    // Redraws the texts that depend on the sign-in state after a language change.
+    translate() {
+      account.setUser(current);
+      say('');
+      cloud.setLanguage();
     },
 
     setStatus(text, isError = false) {
       say(text, isError);
     },
   };
+  return account;
 }

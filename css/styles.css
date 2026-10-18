@@ -456,6 +456,37 @@ svg {
   color: var(--text-soft);
 }
 
+/* Language switch in the home screen's top corner. */
+.lang-btn {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  z-index: 1;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.3s ease;
+}
+
+.lang-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.lang-btn:active {
+  transform: scale(0.96);
+}
+
 .home-menu {
   align-self: start;
   display: flex;
