@@ -20,6 +20,10 @@ export function createUI(handlers) {
     swSound: $('sw-sound'),
     swVibration: $('sw-vibration'),
     swMoves: $('sw-moves'),
+    win: $('win'),
+    winTitle: $('win-title'),
+    winDetail: $('win-detail'),
+    winNext: $('btn-win-next'),
   };
 
   el.prev.addEventListener('click', handlers.onPrev);
@@ -50,9 +54,12 @@ export function createUI(handlers) {
   for (const radio of document.querySelectorAll('input[name="theme"]')) {
     radio.addEventListener('change', () => handlers.onSettingsChange({ theme: radio.value }));
   }
+  if (!('vibrate' in navigator)) el.swVibration.closest('.row').hidden = true;
+
+  el.winNext.addEventListener('click', handlers.onWinNext);
 
   document.addEventListener('keydown', (e) => {
-    if (e.altKey || e.target.closest('input, dialog')) return;
+    if (e.altKey || !el.win.hidden || e.target.closest('input, dialog')) return;
     const key = e.key.toLowerCase();
     if (key === 'z' && !e.shiftKey) handlers.onUndo();
     else if (key === 'h' && !e.ctrlKey && !e.metaKey) handlers.onHint();
@@ -85,6 +92,20 @@ export function createUI(handlers) {
       el.swMoves.setAttribute('aria-checked', String(showMoves));
       const radio = document.querySelector(`input[name="theme"][value="${theme}"]`);
       if (radio) radio.checked = true;
+    },
+
+    showWin({ moves, isLast }) {
+      el.winTitle.textContent = isLast ? '¡Jardín completado!' : '¡Nivel completado!';
+      el.winDetail.textContent = isLast
+        ? `Has resuelto todos los niveles. Último nivel en ${plural(moves, 'movimiento', 'movimientos')}.`
+        : `Resuelto en ${plural(moves, 'movimiento', 'movimientos')}.`;
+      el.winNext.textContent = isLast ? 'Jugar de nuevo' : 'Siguiente nivel';
+      el.win.hidden = false;
+      el.winNext.focus({ preventScroll: true });
+    },
+
+    hideWin() {
+      el.win.hidden = true;
     },
 
     // Read out by screen readers.

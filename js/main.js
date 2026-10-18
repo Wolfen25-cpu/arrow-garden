@@ -15,6 +15,7 @@ const sound = new Sound();
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 const state = loadState();
 let game;
+let winTimer = 0;
 
 const ui = createUI({
   onPrev: () => startLevel(state.level - 1),
@@ -27,9 +28,12 @@ const ui = createUI({
     changeSettings({ muted: !state.muted });
   },
   onSettingsChange: changeSettings,
+  onWinNext: () => startLevel(state.level >= LEVEL_COUNT ? 1 : state.level + 1),
 });
 
 function startLevel(level) {
+  clearTimeout(winTimer);
+  ui.hideWin();
   state.level = Math.min(Math.max(1, level), state.maxLevel, LEVEL_COUNT);
   game = new Game(generateLevel(state.level));
   renderer.setGame(game);
@@ -91,7 +95,13 @@ function completeLevel() {
   state.maxLevel = Math.max(state.maxLevel, Math.min(state.level + 1, LEVEL_COUNT));
   state.progressAt = Date.now();
   persist();
-  setTimeout(() => sound.win(), renderer.calm ? 150 : 600);
+  const isLast = state.level >= LEVEL_COUNT;
+  // Let the last arrow finish leaving before celebrating.
+  winTimer = setTimeout(() => {
+    sound.win();
+    ui.showWin({ moves: game.moves, isLast });
+    ui.announce(isLast ? '¡Has completado todos los niveles!' : `¡Nivel ${state.level} completado!`);
+  }, renderer.calm ? 150 : 700);
 }
 
 function undo() {
@@ -108,6 +118,7 @@ function hint() {
 }
 
 function restart() {
+  if (game.isWon) return;
   game.restart();
   sound.resetStreak();
   renderer.setGame(game);
