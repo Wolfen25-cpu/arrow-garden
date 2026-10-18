@@ -5,7 +5,7 @@ import { generateLevel } from '../js/generator.js';
 import { levelConfig } from '../js/levels.js';
 import { DIRS, buildGrid, solve } from '../js/game.js';
 
-const count = Number(process.argv[2] ?? 30);
+const count = Number(process.argv[2] ?? 100);
 let failures = 0;
 
 const fail = (level, message) => {
@@ -51,6 +51,7 @@ for (let level = 1; level <= count; level++) {
     `nivel ${String(level).padStart(2)}  ${size}×${size}  flechas ${String(arrows.length).padStart(2)}` +
       `  curvas ${String(bent).padStart(2)}  cobertura ${Math.round((covered / open) * 100)}%` +
       `  profundidad ${data.depth}/${cfg.minDepth}  ${ms.toFixed(0)} ms` +
+      `  ${cfg.tier}` +
       (data.shape ? `  figura ${data.shape}` : '') +
       (data.maxErrors ? `  errores ${data.maxErrors}` : ''),
   );

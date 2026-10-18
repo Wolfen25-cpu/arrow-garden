@@ -26,15 +26,17 @@ export function generateLevel(level) {
   const mask = cfg.shape ? shapeMask(cfg.shape, cfg.size) : null;
   let best = null;
 
-  // Several seeded attempts; keep the most tangled board. Still deterministic.
+  // Several seeded attempts; keep the best fit for the level. Still deterministic.
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const rng = createRng(hashSeed(cfg.seed, attempt));
     const arrows = buildBoard(cfg, mask, rng);
     const { depth } = solve(cfg.size, arrows);
     const coverage = arrows.reduce((n, a) => n + a.cells.length, 0) / openCells(cfg.size, mask);
-    const score = depth + coverage * (mask ? 10 : 1);
+    // Easy levels cap the depth too: a board past `maxDepth` scores as if it fell short.
+    const fit = depth > cfg.maxDepth ? 2 * cfg.maxDepth - depth : depth;
+    const score = fit + coverage * (mask ? 10 : 1);
     if (!best || score > best.score) best = { arrows, depth, score, rng };
-    if (depth >= cfg.minDepth && (!mask || coverage >= SHAPE_COVERAGE)) break;
+    if (depth >= cfg.minDepth && depth <= cfg.maxDepth && (!mask || coverage >= SHAPE_COVERAGE)) break;
   }
 
   assignColors(best.arrows, cfg.size, best.rng);
@@ -79,9 +81,11 @@ function buildBoard(cfg, mask, rng) {
     }
     candidates.sort((a, b) => b.score - a.score);
 
+    // Keep an arrow only if the board stays solvable and no more tangled than the level allows.
     for (const { arrow } of candidates) {
       arrows.push(arrow);
-      if (solve(size, arrows).solvable) {
+      const { solvable, depth } = solve(size, arrows);
+      if (solvable && depth <= cfg.maxDepth) {
         for (const c of arrow.cells) grid[c.y * size + c.x] = arrow.id;
         covered += arrow.cells.length;
         break;
