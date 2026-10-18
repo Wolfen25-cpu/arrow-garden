@@ -52,7 +52,7 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-weight: 600;
   line-height: 1.4;
   -webkit-tap-highlight-color: transparent;

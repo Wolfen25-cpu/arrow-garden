@@ -7,18 +7,11 @@
   <meta name="description" content="Un puzzle relajante: toca cada flecha para que salga del tablero.">
   <meta name="theme-color" content="#f4ede1">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23f4ede1'/%3E%3Cpath d='M7 16h12' stroke='%238695ec' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M18 9l8 7-8 7z' fill='%238695ec' stroke='%238695ec' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap">
+  <!-- Third-party origins are only the ones Firebase sign-in needs (gstatic SDK, Google APIs, auth frames). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com; frame-src https://*.firebaseapp.com https://accounts.google.com https://apis.google.com; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="stylesheet" href="css/styles.css">
-  <script>
-    // Apply the saved theme before first paint to avoid a flash.
-    try {
-      var saved = JSON.parse(localStorage.getItem('arrowGarden.v1') || '{}').theme;
-      var dark = saved === 'dark' || (saved !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    } catch (e) {}
-  </script>
+  <script src="js/theme-init.js"></script>
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
@@ -119,7 +112,8 @@
       <p class="note">Crea una cuenta gratis para guardar tu progreso y seguir jugando en cualquier dispositivo.</p>
       <button class="secondary wide" id="btn-google" type="button">Continuar con Google</button>
       <div class="divider"><span>o con tu correo</span></div>
-      <form id="email-form" novalidate>
+      <!-- method="dialog" never sends data over the network, even if JS fails to load. -->
+      <form id="email-form" method="dialog" novalidate>
         <label class="field">Correo
           <input type="email" name="email" autocomplete="email" required>
         </label>
