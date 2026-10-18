@@ -12,6 +12,7 @@ export const DEFAULTS = {
   theme: 'auto', // 'auto' | 'light' | 'dark'
   progressAt: 0, // timestamps used to merge with cloud saves
   settingsAt: 0,
+  account: false, // signed in last time: reconnect to the cloud on startup
 };
 
 const THEMES = ['auto', 'light', 'dark'];
@@ -32,7 +33,26 @@ export function sanitize(raw) {
     theme: THEMES.includes(data.theme) ? data.theme : DEFAULTS.theme,
     progressAt: time(data.progressAt),
     settingsAt: time(data.settingsAt),
+    account: bool(data.account, DEFAULTS.account),
   };
+}
+
+// Combines this device's state with the cloud copy: the furthest progress is
+// never lost, and for everything else the most recent change wins.
+export function mergeProgress(local, remoteRaw) {
+  if (!remoteRaw) return local;
+  const remote = sanitize(remoteRaw);
+  const merged = { ...local };
+  merged.maxLevel = Math.max(local.maxLevel, remote.maxLevel);
+  if (remote.progressAt > local.progressAt) {
+    merged.level = remote.level;
+    merged.progressAt = remote.progressAt;
+  }
+  merged.level = Math.min(merged.level, merged.maxLevel);
+  if (remote.settingsAt > local.settingsAt) {
+    for (const key of ['muted', 'vibration', 'showMoves', 'theme', 'settingsAt']) merged[key] = remote[key];
+  }
+  return merged;
 }
 
 export function loadState() {

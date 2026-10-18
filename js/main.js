@@ -6,8 +6,10 @@ import { LEVEL_COUNT } from './levels.js';
 import { Renderer } from './render.js';
 import { attachInput } from './input.js';
 import { Sound, vibrate } from './audio.js';
-import { loadState, saveState } from './storage.js';
+import { loadState, mergeProgress, saveState } from './storage.js';
 import { createUI } from './ui.js';
+import * as cloud from './cloud.js';
+import { setupAccount } from './account.js';
 
 const canvas = document.getElementById('board');
 const renderer = new Renderer(canvas);
@@ -16,6 +18,9 @@ const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 const state = loadState();
 let game;
 let winTimer = 0;
+let cloudUser = null;
+let cloudStart = null;
+let pushTimer = 0;
 
 const ui = createUI({
   onPrev: () => startLevel(state.level - 1),
@@ -28,8 +33,12 @@ const ui = createUI({
     changeSettings({ muted: !state.muted });
   },
   onSettingsChange: changeSettings,
-  onWinNext: () => startLevel(state.level >= LEVEL_COUNT ? 1 : state.level + 1),
+  onWinNext: () => startLevel(nextLevel()),
 });
+
+const account = setupAccount({ ensureCloud });
+
+const nextLevel = () => (state.level >= LEVEL_COUNT ? 1 : state.level + 1);
 
 function startLevel(level) {
   clearTimeout(winTimer);
@@ -44,6 +53,55 @@ function startLevel(level) {
 
 function persist() {
   saveState(state);
+  schedulePush();
+}
+
+// ---------- Cloud sync (optional) ----------
+
+function ensureCloud() {
+  cloudStart ??= cloud.start(onUserChange).catch((err) => {
+    cloudStart = null;
+    throw err;
+  });
+  return cloudStart;
+}
+
+async function onUserChange(user) {
+  cloudUser = user;
+  account.setUser(user);
+  state.account = Boolean(user);
+  if (!user) {
+    saveState(state);
+    return;
+  }
+  try {
+    const remote = await cloud.pull(user.uid);
+    const level = state.level;
+    Object.assign(state, mergeProgress(state, remote));
+    applySettings();
+    // Jump to the synced level only if it would not interrupt a game in progress.
+    if (state.level !== level && game.moves === 0) startLevel(state.level);
+    else {
+      state.level = level;
+      persist();
+      refresh();
+    }
+    await pushNow();
+  } catch (err) {
+    console.warn('Cloud sync failed', err);
+    account.setStatus('No se pudo sincronizar ahora. Se intentará de nuevo al avanzar.', true);
+  }
+}
+
+function schedulePush() {
+  if (!cloudUser) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => pushNow().catch((err) => console.warn('Cloud save failed', err)), 1500);
+}
+
+function pushNow() {
+  clearTimeout(pushTimer);
+  return cloudUser ? cloud.push(cloudUser.uid, state) : Promise.resolve();
 }
 
 function changeSettings(changes) {
@@ -94,7 +152,11 @@ function handleTap(cell) {
 function completeLevel() {
   state.maxLevel = Math.max(state.maxLevel, Math.min(state.level + 1, LEVEL_COUNT));
   state.progressAt = Date.now();
+  // Save as if already on the next level, so a reload continues from there.
+  const current = state.level;
+  state.level = nextLevel();
   persist();
+  state.level = current;
   const isLast = state.level >= LEVEL_COUNT;
   // Let the last arrow finish leaving before celebrating.
   winTimer = setTimeout(() => {
@@ -129,6 +191,13 @@ darkQuery.addEventListener('change', () => {
   if (state.theme === 'auto') applyTheme();
 });
 
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && pushTimer) pushNow().catch(() => {});
+});
+
 attachInput(canvas, renderer, handleTap);
 applySettings();
 startLevel(state.level);
+
+// Reconnect players who were signed in last time; offline is fine, it just retries later.
+if (cloud.cloudEnabled && state.account) ensureCloud().catch(() => {});
