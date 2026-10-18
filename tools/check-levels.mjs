@@ -4,6 +4,7 @@
 import { generateLevel } from '../js/generator.js';
 import { levelConfig } from '../js/levels.js';
 import { DIRS, buildGrid, exitPath, reversed, solve } from '../js/game.js';
+import { solve3, surface } from '../js/game3d.js';
 
 const count = Number(process.argv[2] ?? 100);
 let failures = 0;
@@ -19,6 +20,37 @@ for (let level = 1; level <= count; level++) {
   const ms = performance.now() - started;
   const cfg = levelConfig(level);
   const { size, arrows } = data;
+
+  if (data.is3d) {
+    const geo = surface(size);
+    if (!solve3(size, arrows).solvable) fail(level, 'sin solución');
+    if (JSON.stringify(generateLevel(level)) !== JSON.stringify(data)) fail(level, 'no determinista');
+    const used = new Set();
+    for (const arrow of arrows) {
+      if (arrow.cells.length < 1 || arrow.cells.length > 4) fail(level, `largo inválido ${arrow.cells.length}`);
+      arrow.cells.forEach((c, i) => {
+        if (!Number.isInteger(c) || c < 0 || c >= geo.cellCount) fail(level, 'celda fuera del cubo');
+        if (used.has(c)) fail(level, 'flechas superpuestas');
+        used.add(c);
+        if (i > 0 && !geo.inPlane(arrow.cells[i - 1]).some((d) => geo.step(arrow.cells[i - 1], d).cell === c)) {
+          fail(level, 'cuerpo no contiguo');
+        }
+      });
+      if (!geo.inPlane(arrow.cells[arrow.cells.length - 1]).includes(arrow.dir)) fail(level, 'la cabeza no va por su cara');
+      if (arrow.cells.length > 1) {
+        const [a, b] = arrow.cells.slice(-2);
+        const reached = geo.inPlane(a).map((d) => geo.step(a, d)).find((r) => r.cell === b);
+        if (reached?.dir !== arrow.dir) fail(level, 'la cabeza no apunta en su dirección');
+      }
+    }
+    const crossing = arrows.filter((a) => new Set(a.cells.map((c) => geo.faceOf(c))).size > 1).length;
+    console.log(
+      `nivel ${String(level).padStart(2)}  cubo ${size}×${size}  flechas ${String(arrows.length).padStart(2)}` +
+        `  cruzan arista ${String(crossing).padStart(2)}  cobertura ${Math.round((used.size / geo.cellCount) * 100)}%` +
+        `  profundidad ${data.depth}/${cfg.minDepth}  ${ms.toFixed(0)} ms  ${cfg.tier}  3D`,
+    );
+    continue;
+  }
 
   const obstacles = data.obstacles ?? [];
   if (!solve(size, arrows, obstacles).solvable) fail(level, 'sin solución');

@@ -5,7 +5,7 @@
 import { DIRS } from './game.js';
 
 // Pastel hues, slightly deeper on the light theme so they read on cream.
-const PALETTES = {
+export const PALETTES = {
   light: ['#ef8f86', '#f3a76a', '#e6bf4f', '#86c77f', '#4fbfae', '#62aee6',
     '#8695ec', '#ac88e6', '#e489c2', '#d39a6a', '#9ccb5a', '#6fc3d6'],
   dark: ['#ffb3ab', '#ffcb9a', '#fbe28f', '#b6e7a8', '#93e1d3', '#a4d1fb',
@@ -142,6 +142,17 @@ export class Renderer {
     this.requestDraw();
   }
 
+  // The arrow under a point, or null. Shared with Renderer3D so input can stay generic.
+  pick(px, py) {
+    const cell = this.cellAt(px, py);
+    return cell ? this.game.arrowAt(cell.x, cell.y)?.id ?? null : null;
+  }
+
+  // How far a finger may wander and still count as a tap.
+  get tapSlop() {
+    return this.cell * 0.8;
+  }
+
   cellAt(px, py) {
     if (!this.game) return null;
     const x = Math.floor((px - this.ox) / this.cell);
@@ -253,6 +264,10 @@ export class Renderer {
     for (const [id, anim] of this.anims) {
       if (anim.type !== 'exit' || live.has(id)) continue;
       const p = clamp01((now - anim.start) / anim.duration);
+      if (p >= 1) {
+        this.anims.delete(id); // finished: draw nothing, or a faint last frame would linger
+        continue;
+      }
       const offset = easeInOutQuad(p) * anim.travel;
       if (!anim.burst && offset >= anim.edgeAt) {
         anim.burst = true;
@@ -260,8 +275,7 @@ export class Renderer {
       }
       const fade = 1 - clamp01((offset - anim.edgeAt) / (anim.arrow.cells.length + 0.2));
       this.paintArrow(anim.arrow, anim.track, offset, { alpha: fade }, anim.clip);
-      if (p >= 1) this.anims.delete(id);
-      else active = true;
+      active = true;
     }
 
     if (this.drawParticles(now)) active = true;

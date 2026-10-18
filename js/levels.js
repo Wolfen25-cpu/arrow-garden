@@ -61,6 +61,10 @@ const HOLES_FROM = 41;
 const TURNS = { easy: 1, medium: 2, hard: 2, expert: 3 };
 const HOLES = { easy: 1, medium: 1, hard: 2, expert: 2 };
 
+// Cube levels: 14, 24, … 94 (never clashing with pictures ≡ 3 or limits ≡ 1 mod 4).
+// Every face is a 3×3 grid at first, 4×4 from level 54.
+const is3d = (level) => level >= 14 && level % 10 === 4 && level < LEVEL_COUNT;
+
 // Some levels allow only a few bumps before starting over: 3, or 2 from level 50
 // (expert boards keep 3, so they stay fair).
 function errorLimit(level, tier) {
@@ -93,6 +97,26 @@ export function levelConfig(level) {
   }
 
   const tier = tierFor(level);
+  if (is3d(level)) {
+    const size = level < 54 ? 3 : 4;
+    const t = TIERS[tier];
+    return {
+      level,
+      size,
+      is3d: true,
+      shape: null,
+      tier,
+      maxErrors: 0,
+      minLength: 2,
+      maxLength: t.maxLength,
+      bendChance: t.bendChance,
+      fill: t.fill,
+      // Fewer cells per face than a flat board, so a little less depth is asked for.
+      minDepth: Math.min(t.minDepth, size === 3 ? 6 : 9),
+      maxDepth: t.maxDepth,
+      seed,
+    };
+  }
   const t = TIERS[tier];
   const sizeRng = createRng(hashSeed('size', level));
   return {

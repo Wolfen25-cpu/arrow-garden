@@ -7,6 +7,8 @@ import { generateLevel } from './generator.js';
 import { LEVEL_COUNT, levelConfig } from './levels.js';
 import { setLang, shapeName, t } from './i18n.js';
 import { Renderer } from './render.js';
+import { Renderer3D } from './render3d.js';
+import { Game3D } from './game3d.js';
 import { attachInput } from './input.js';
 import { Sound, vibrate } from './audio.js';
 import { loadState, mergeProgress, saveState } from './storage.js';
@@ -16,7 +18,10 @@ import * as cloud from './cloud.js';
 import { setupAccount } from './account.js';
 
 const canvas = document.getElementById('board');
-const renderer = new Renderer(canvas);
+// Two renderers share the canvas; only the one holding a game draws.
+const flat = new Renderer(canvas);
+const cube = new Renderer3D(canvas);
+let renderer = flat;
 const sound = new Sound();
 const darkQuery = matchMedia('(prefers-color-scheme: dark)');
 const state = loadState();
@@ -45,6 +50,7 @@ const ui = createUI({
   onWinNext: () => startLevel(nextLevel()),
   onRetry: retry,
   onLanguage: changeLanguage,
+  onRotate: (dx, dy) => renderer.rotate?.(dx, dy),
 });
 
 const account = setupAccount({ ensureCloud });
@@ -73,8 +79,8 @@ function showLevels() {
     completed: state.maxLevel - 1,
     current: state.level,
     info: (n) => {
-      const { shape, maxErrors, tier } = levelConfig(n);
-      return { shapeLabel: shapeName(shape), maxErrors, tier };
+      const { shape, maxErrors, tier, is3d } = levelConfig(n);
+      return { shapeLabel: shapeName(shape), maxErrors, tier, is3d: Boolean(is3d) };
     },
   });
 }
@@ -99,7 +105,9 @@ function startLevel(level) {
   clearTimeout(winTimer);
   ui.hideWin();
   state.level = Math.min(Math.max(1, level), state.maxLevel, LEVEL_COUNT);
-  game = new Game(generateLevel(state.level));
+  const data = generateLevel(state.level);
+  game = data.is3d ? new Game3D(data) : new Game(data);
+  useRenderer(data.is3d ? cube : flat);
   renderer.setGame(game);
   sound.resetStreak();
   persist();
@@ -133,6 +141,7 @@ function startTutorial() {
   ui.showGame();
   ui.setTutorial(true);
   game = new Game(TUTORIAL_LEVEL);
+  useRenderer(flat);
   renderer.setGame(game);
   sound.resetStreak();
   showTutorialStep();
@@ -241,7 +250,8 @@ function applyTheme() {
   const dark = state.theme === 'dark' || (state.theme === 'auto' && darkQuery.matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.querySelector('meta[name="theme-color"]').content = dark ? '#1d2030' : '#f4ede1';
-  renderer.readTheme();
+  flat.readTheme();
+  cube.readTheme();
 }
 
 // ---------- Language ----------
@@ -274,10 +284,16 @@ function refresh() {
   ui.setUndo(game.canUndo && !game.isWon && !game.isLost);
 }
 
-function handleTap(cell) {
+function useRenderer(next) {
+  if (next === renderer) return;
+  renderer.setGame(null);
+  renderer = next;
+}
+
+function handleTap(id) {
   sound.unlock();
   if ((mode !== 'play' && mode !== 'tutorial') || !game || game.isWon || game.isLost) return;
-  const arrow = game.arrowAt(cell.x, cell.y);
+  const arrow = game.arrows.find((a) => a.id === id);
   if (!arrow) return;
   // Keep the lesson on track: only the glowing arrow responds.
   if (mode === 'tutorial' && arrow.id !== TUTORIAL_STEPS[tutorialStep]?.target) return;
@@ -368,7 +384,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden' && pushTimer) pushNow().catch(() => {});
 });
 
-attachInput(canvas, renderer, handleTap);
+attachInput(canvas, () => renderer, handleTap);
 setLang(state.lang);
 ui.translate();
 applySettings();

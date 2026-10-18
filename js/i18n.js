@@ -29,6 +29,7 @@ const STRINGS = {
     'levels.done': ', completado',
     'levels.limit': ({ n }) => `, ${plural(n, 'choque permitido', 'choques permitidos')}`,
     'levels.picture': ', figura: {name}',
+    'levels.cube': ', nivel 3D',
 
     'game.level': 'Nivel {n}',
     'game.tutorial': 'Tutorial',
@@ -47,6 +48,7 @@ const STRINGS = {
     'tip.double': 'Nuevo: las flechas con dos puntas pueden salir por cualquiera de sus extremos.',
     'tip.turn': 'Nuevo: los cuadros azules desvían la flecha hacia donde apuntan.',
     'tip.hole': 'Nuevo: los hoyos se tragan la flecha. Basta con que llegue hasta ellos.',
+    'tip.cube': 'Nuevo: nivel en cubo. Arrastra para girarlo. Cada flecha sale por el borde de su cara.',
     'tier.intro': 'Inicio',
     'tier.easy': 'Fácil',
     'tier.medium': 'Media',
@@ -170,6 +172,7 @@ const STRINGS = {
     'levels.done': ', completed',
     'levels.limit': ({ n }) => `, ${plural(n, 'bump allowed', 'bumps allowed')}`,
     'levels.picture': ', picture: {name}',
+    'levels.cube': ', 3D level',
 
     'game.level': 'Level {n}',
     'game.tutorial': 'Tutorial',
@@ -188,6 +191,7 @@ const STRINGS = {
     'tip.double': 'New: arrows with two heads can leave from either end.',
     'tip.turn': 'New: blue tiles send an arrow off the way they point.',
     'tip.hole': 'New: holes swallow arrows. An arrow only needs to reach one.',
+    'tip.cube': 'New: a cube level. Drag to turn it. Each arrow slides off the edge of its face.',
     'tier.intro': 'Intro',
     'tier.easy': 'Easy',
     'tier.medium': 'Medium',

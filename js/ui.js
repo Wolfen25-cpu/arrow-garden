@@ -123,6 +123,11 @@ export function createUI(handlers) {
     if (key === 'z' && !e.shiftKey) handlers.onUndo();
     else if (key === 'h' && !e.ctrlKey && !e.metaKey) handlers.onHint();
     else if (key === 'r' && !e.ctrlKey && !e.metaKey) handlers.onRestart();
+    // Arrow keys turn a 3D level (ignored on flat boards).
+    else if (key === 'arrowleft') handlers.onRotate(-30, 0);
+    else if (key === 'arrowright') handlers.onRotate(30, 0);
+    else if (key === 'arrowup') handlers.onRotate(0, -30);
+    else if (key === 'arrowdown') handlers.onRotate(0, 30);
     else return;
     e.preventDefault();
   });
@@ -174,14 +179,17 @@ export function createUI(handlers) {
         tile.dataset.state = locked ? 'locked' : done ? 'done' : 'open';
         tile.dataset.tone = String((n - 1) % TILE_TONES);
         tile.disabled = locked;
-        const { shapeLabel, maxErrors, tier } = info(n);
+        const { shapeLabel, maxErrors, tier, is3d } = info(n);
         const badge = maxErrors
           ? `<span class="tile-badge">${ICON_HEART}${maxErrors}</span>`
-          : shapeLabel ? `<span class="tile-badge">${ICON_PICTURE}</span>` : '';
+          : shapeLabel ? `<span class="tile-badge">${ICON_PICTURE}</span>`
+            : is3d ? '<span class="tile-badge">3D</span>' : '';
         tile.innerHTML = (locked ? ICON_LOCK : `<span>${n}</span>${done ? ICON_CHECK : ''}`) + badge +
           `<span class="tile-tier" data-tier="${tier}"></span>`;
         const status = locked ? t('levels.locked') : done ? t('levels.done') : '';
-        const extra = maxErrors ? t('levels.limit', { n: maxErrors }) : shapeLabel ? t('levels.picture', { name: shapeLabel }) : '';
+        const extra = maxErrors ? t('levels.limit', { n: maxErrors })
+          : shapeLabel ? t('levels.picture', { name: shapeLabel })
+            : is3d ? t('levels.cube') : '';
         tile.setAttribute('aria-label', t('levels.tile', { n }) + status + extra + t('levels.tier', { name: t(`tier.${tier}`) }));
         if (n === current && !locked) {
           tile.classList.add('is-current');

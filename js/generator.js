@@ -5,6 +5,7 @@
 import { createRng, hashSeed } from './rng.js';
 import { levelConfig } from './levels.js';
 import { shapeMask } from './shapes.js';
+import { generateLevel3d } from './generator3d.js';
 import { DIRS, DIR_NAMES, buildGrid, exitPath, solve } from './game.js';
 
 export const PALETTE_SIZE = 12;
@@ -23,6 +24,7 @@ const PERPENDICULAR = {
 
 export function generateLevel(level) {
   const cfg = levelConfig(level);
+  if (cfg.is3d) return generateLevel3d(cfg);
   const mask = cfg.shape ? shapeMask(cfg.shape, cfg.size) : null;
   let best = null;
 
