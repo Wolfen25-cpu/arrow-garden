@@ -10,6 +10,8 @@ Si te quedas sin choques, el nivel vuelve a empezar y no pierdes nada más.
 ## Características
 
 - **Pantalla de inicio** con Jugar, Tutorial, Ajustes y Cuenta.
+- **Español e inglés**: botón de idioma en la pantalla de inicio (y en Ajustes). Se recuerda en
+  el dispositivo.
 - **Selector de niveles** en cuadrícula: completados en color, el actual resaltado y los
   bloqueados con candado.
 - **Tutorial interactivo** en un tablero de 3×3 que enseña a mover, a rebotar y las flechas con curva.
@@ -130,6 +132,7 @@ js/input.js             Toques y clics
 js/audio.js             Sonidos con Web Audio y vibración
 js/storage.js           Guardado en localStorage y combinación con la nube
 js/ui.js                Pantalla de inicio, botones, ajustes y nivel completado
+js/i18n.js              Textos en español e inglés
 js/tutorial.js          Tablero y pasos del tutorial
 js/account.js           Diálogo de cuenta
 js/cloud.js             Firebase Auth + Firestore (carga diferida)

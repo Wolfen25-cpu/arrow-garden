@@ -14,7 +14,10 @@ Arrow Garden (arrow-garden): a relaxing arrow puzzle for the browser, published 
   run `node tools/check-levels.mjs 100` before committing.
 - **Levels are deterministic**: level N always produces the same board (seeded RNG). Never use
   `Math.random()` in `generator.js`, `levels.js` or `game.js` (it is fine in `render.js` for particles).
-- **All user-facing text is in Spanish.** Code, identifiers and comments are in English.
+- **User-facing text is in Spanish and English**, all of it in `js/i18n.js` (`t(key, params)`).
+  Never hard-code a visible string: add the key to **both** `es` and `en`. Static HTML uses
+  `data-i18n` (text) / `data-i18n-aria` (aria-label); Spanish stays in the HTML as the fallback.
+  Code, identifiers and comments are in English.
 - **Mobile first and accessible**: touch targets ≥ 48px, honour `prefers-reduced-motion`
   (`renderer.calm`), keep text contrast in both themes, label icon buttons with `aria-label`.
 - **Offline-first saves**: localStorage is the source of truth; the cloud is optional and must
@@ -42,7 +45,8 @@ main.js ── wires everything; owns `state` (progress + settings), the current
   ├─ input.js ────── pointer tap → board cell
   ├─ audio.js ────── Web Audio synth (Sound) + vibrate()
   ├─ ui.js ───────── DOM: home screen, top bar, controls, tutorial coach, settings dialog,
-  │                  win overlay, keyboard shortcuts
+  │                  win overlay, keyboard shortcuts; translate() redraws texts
+  ├─ i18n.js ─────── STRINGS.es / .en, t(), setLang(), shapeName()
   ├─ storage.js ──── localStorage load/save, sanitize(), mergeProgress()
   └─ account.js ──── account dialog → cloud.js (Firebase, lazy-loaded from gstatic CDN)
 ```
@@ -88,6 +92,8 @@ to the real board edge, through the empty cells outside the picture.
 - On completing a level the saved `level` already points to the next one, so a reload continues.
 - Cloud: Firestore document `users/{uid}` with the fields listed in `SYNCED` (`cloud.js`).
   **If you add a synced field, update `firestore.rules` (`validProgress`) too.**
+- `lang` and `tutorialDone` are device-only: saved locally, never synced (adding them to the
+  cloud would need a `firestore.rules` change and a republish of the rules).
 - Merge rule: `maxLevel` = max of both; `level` from the newer `progressAt`; settings from the
   newer `settingsAt`.
 
