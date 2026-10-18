@@ -164,8 +164,9 @@ export class Renderer {
     this.requestDraw();
   }
 
-  showHint(arrow) {
-    this.hint = { id: arrow.id, start: performance.now() };
+  // A persistent hint keeps pulsing until replaced or cleared (used by the tutorial).
+  showHint(arrow, { persistent = false } = {}) {
+    this.hint = { id: arrow.id, start: performance.now(), persistent };
     this.requestDraw();
   }
 
@@ -311,13 +312,14 @@ export class Renderer {
 
   hintState(now) {
     if (!this.hint) return null;
+    const { persistent } = this.hint;
     const elapsed = now - this.hint.start;
-    if (elapsed > HINT_DURATION) {
+    if (!persistent && elapsed > HINT_DURATION) {
       this.hint = null;
       return null;
     }
     const pulse = 0.5 - 0.5 * Math.cos((elapsed / 900) * Math.PI * 2);
-    const fade = 1 - clamp01((elapsed - HINT_DURATION + 600) / 600);
+    const fade = persistent ? 1 : 1 - clamp01((elapsed - HINT_DURATION + 600) / 600);
     return { id: this.hint.id, strength: Math.max(0.05, pulse) * fade };
   }
 
