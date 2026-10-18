@@ -2,7 +2,7 @@
 // slide, bounce and hint animations. It never changes game state: an arrow
 // that has left the model keeps animating here as a "ghost" until it is gone.
 
-import { DIRS, rayCells } from './game.js';
+import { DIRS } from './game.js';
 
 // Pastel hues, slightly deeper on the light theme so they read on cream.
 const PALETTES = {
@@ -30,18 +30,28 @@ const easeOutBack = (t) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
 const bounceCurve = (p) => (p < 0.35 ? easeOutCubic(p / 0.35) : 1 - easeOutBack((p - 0.35) / 0.65));
 
 // The polyline an arrow travels along: a virtual point behind the tail, its
-// own cells, then straight on past the head. Points are one cell apart, so a
-// distance travelled maps directly onto an index.
-function buildTrack(arrow, extra) {
+// own cells, its way out (`path`, which may turn), then straight on. Points are
+// one cell apart, so a distance travelled maps directly onto an index.
+function buildTrack(arrow, path = [], extra = 0) {
   const { cells } = arrow;
   const first = cells.length > 1
     ? { dx: cells[1].x - cells[0].x, dy: cells[1].y - cells[0].y }
     : DIRS[arrow.dir];
-  const track = [{ x: cells[0].x - first.dx, y: cells[0].y - first.dy }, ...cells];
-  const { dx, dy } = DIRS[arrow.dir];
-  const head = cells[cells.length - 1];
-  for (let k = 1; k <= Math.ceil(extra) + 1; k++) track.push({ x: head.x + dx * k, y: head.y + dy * k });
+  const track = [{ x: cells[0].x - first.dx, y: cells[0].y - first.dy }, ...cells, ...path];
+  const end = track[track.length - 1];
+  const before = track[track.length - 2];
+  const { dx, dy } = path.length ? { dx: end.x - before.x, dy: end.y - before.y } : DIRS[arrow.dir];
+  for (let k = 1; k <= Math.ceil(extra) + 1; k++) track.push({ x: end.x + dx * k, y: end.y + dy * k });
   return track;
+}
+
+// Unit direction of the track ahead of position `s` (or behind it, pointing back).
+function trackDir(track, s, back = false) {
+  const last = track.length - 2;
+  const i = Math.max(0, Math.min(last, back ? Math.ceil(s) - 1 : Math.floor(s)));
+  const a = track[i];
+  const b = track[i + 1];
+  return back ? { dx: a.x - b.x, dy: a.y - b.y } : { dx: b.x - a.x, dy: b.y - a.y };
 }
 
 function pointAt(track, s) {
@@ -55,10 +65,8 @@ function pointAt(track, s) {
 // Double arrows carry a head at the tail too, so their body reaches the tail cell's centre.
 const insetOf = (arrow) => (arrow.both ? 0 : TAIL_INSET);
 
-// Points of the arrow body after sliding `offset` cells along its track.
-function bodyPoints(track, length, offset, inset = TAIL_INSET) {
-  const s0 = 1 - inset + offset;
-  const s1 = length + offset;
+// Points of the arrow body between track positions s0 (tail end) and s1 (head end).
+function bodyPoints(track, s0, s1) {
   const points = [pointAt(track, s0)];
   for (let k = Math.floor(s0) + 1; k < s1; k++) points.push(track[k]);
   points.push(pointAt(track, s1));
@@ -97,6 +105,8 @@ export class Renderer {
       edge: style.getPropertyValue('--board-edge').trim(),
       dot: style.getPropertyValue('--dot').trim(),
       shadow: dark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(90, 64, 30, 0.16)',
+      turn: style.getPropertyValue('--accent').trim(),
+      hole: dark ? 'rgba(0, 0, 0, 0.55)' : 'rgba(70, 50, 30, 0.45)',
       palette: dark ? PALETTES.dark : PALETTES.light,
     };
     this.requestDraw();
@@ -140,14 +150,18 @@ export class Renderer {
     return x >= 0 && y >= 0 && x < n && y < n ? { x, y } : null;
   }
 
-  playExit(arrow, distance) {
+  // `result` is what Game.tap returned: the moving arrow, its path and whether it ends in a hole.
+  playExit({ arrow, path, hole }) {
+    const distance = path.length;
     const travel = distance + arrow.cells.length + 0.6;
     this.anims.set(arrow.id, {
       type: 'exit',
       arrow,
-      track: buildTrack(arrow, travel),
+      track: buildTrack(arrow, path, travel),
       travel,
-      edgeAt: distance + 0.5, // offset at which the head crosses the board edge
+      // Offset at which the head crosses the board edge, or reaches the hole's centre.
+      edgeAt: hole ? distance : distance + 0.5,
+      clip: hole ? arrow.cells.length + distance : Infinity,
       start: performance.now(),
       duration: this.calm ? 140 : Math.min(900, 300 + travel * 55),
     });
@@ -155,11 +169,11 @@ export class Renderer {
     this.requestDraw();
   }
 
-  playBounce(arrow, distance) {
+  playBounce({ arrow, distance, path }) {
     this.anims.set(arrow.id, {
       type: 'bounce',
       arrow,
-      track: buildTrack(arrow, distance + 1),
+      track: buildTrack(arrow, path.slice(0, distance + 1)),
       reach: this.calm ? 0.08 : distance + 0.18,
       start: performance.now(),
       duration: this.calm ? 160 : 380 + distance * 40,
@@ -193,6 +207,7 @@ export class Renderer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
     this.drawBoard();
+    this.drawObstacles();
 
     let active = false;
     const hint = this.hintState(now);
@@ -227,7 +242,7 @@ export class Renderer {
 
       const glow = hint?.id === arrow.id ? hint.strength : 0;
       if (glow) this.drawRay(arrow, glow);
-      this.drawArrow(arrow, bodyPoints(track, arrow.cells.length, offset, insetOf(arrow)), { alpha, scale, glow });
+      this.paintArrow(arrow, track, offset, { alpha, scale, glow });
     });
 
     if (this.intro) {
@@ -244,8 +259,7 @@ export class Renderer {
         this.burst(anim);
       }
       const fade = 1 - clamp01((offset - anim.edgeAt) / (anim.arrow.cells.length + 0.2));
-      const points = bodyPoints(anim.track, anim.arrow.cells.length, offset, insetOf(anim.arrow));
-      this.drawArrow(anim.arrow, points, { alpha: fade });
+      this.paintArrow(anim.arrow, anim.track, offset, { alpha: fade }, anim.clip);
       if (p >= 1) this.anims.delete(id);
       else active = true;
     }
@@ -255,13 +269,13 @@ export class Renderer {
     if (active) this.requestDraw();
   }
 
-  // A little puff of petals where the arrow leaves the board.
+  // A little puff of petals where the arrow leaves the board (or drops into a hole).
   burst(anim) {
     if (this.calm) return;
     const { arrow } = anim;
-    const { dx, dy } = DIRS[arrow.dir];
-    const head = arrow.cells[arrow.cells.length - 1];
-    const [x, y] = this.toPx({ x: head.x + dx * anim.edgeAt, y: head.y + dy * anim.edgeAt });
+    const s = arrow.cells.length + anim.edgeAt;
+    const { dx, dy } = trackDir(anim.track, s);
+    const [x, y] = this.toPx(pointAt(anim.track, s));
     const heading = Math.atan2(dy, dx);
     const color = this.colors.palette[arrow.color];
     for (let i = 0; i < PARTICLES_PER_BURST; i++) {
@@ -305,10 +319,23 @@ export class Renderer {
     return this.particles.length > 0;
   }
 
+  // Draws an arrow slid `offset` cells along `track`. Past `clip` (a hole) the body is
+  // swallowed, and the front head goes first.
+  paintArrow(arrow, track, offset, opts, clip = Infinity) {
+    const length = arrow.cells.length;
+    const s1 = length + offset;
+    const s0 = Math.min(1 - insetOf(arrow) + offset, clip);
+    if (s0 >= clip) return;
+    const end = Math.min(s1, clip);
+    const front = s1 <= clip ? trackDir(track, s1) : null;
+    const back = arrow.both ? trackDir(track, s0, true) : null;
+    this.drawArrow(arrow, bodyPoints(track, s0, end), { ...opts, front, back });
+  }
+
   restingTrack(arrow) {
     let track = this.tracks.get(arrow);
     if (!track) {
-      track = buildTrack(arrow, 0);
+      track = buildTrack(arrow);
       this.tracks.set(arrow, track);
     }
     return track;
@@ -360,6 +387,47 @@ export class Renderer {
     }
   }
 
+  // Turns: an outlined tile with a chevron pointing where arrows are sent.
+  // Holes: a dark sunken disc that swallows arrows.
+  drawObstacles() {
+    const { ctx, cell } = this;
+    for (const o of this.game.obstacles) {
+      const [px, py] = this.toPx(o);
+      ctx.save();
+      ctx.translate(px, py);
+      if (o.kind === 'hole') {
+        ctx.fillStyle = this.colors.hole;
+        ctx.beginPath();
+        ctx.arc(0, 0, cell * 0.34, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = Math.max(1.5, cell * 0.05);
+        ctx.strokeStyle = this.colors.edge;
+        ctx.stroke();
+      } else {
+        const { dx, dy } = DIRS[o.dir];
+        ctx.rotate(Math.atan2(dy, dx));
+        ctx.strokeStyle = this.colors.turn;
+        ctx.fillStyle = this.colors.turn;
+        ctx.lineWidth = Math.max(1.5, cell * 0.06);
+        ctx.beginPath();
+        ctx.roundRect(-cell * 0.36, -cell * 0.36, cell * 0.72, cell * 0.72, cell * 0.16);
+        ctx.globalAlpha = 0.18;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.stroke();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = Math.max(2, cell * 0.08);
+        ctx.beginPath();
+        ctx.moveTo(-cell * 0.08, -cell * 0.17);
+        ctx.lineTo(cell * 0.12, 0);
+        ctx.lineTo(-cell * 0.08, cell * 0.17);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
   // Picture levels: overlapping rounded cells merge into the figure's outline.
   // Painting the edge colour slightly larger first gives it a border without inner seams.
   drawSilhouette(mask, pad) {
@@ -384,11 +452,11 @@ export class Renderer {
   // Soft dots along the way out, shown with a hint (backwards when a double arrow leaves that way).
   drawRay(arrow, strength) {
     const { ctx, cell } = this;
-    const way = this.game.exitWay?.(arrow) ?? arrow;
+    const way = this.game.exitWay(arrow) ?? arrow;
     ctx.save();
     ctx.globalAlpha = 0.6 * strength;
     ctx.fillStyle = this.colors.palette[arrow.color];
-    for (const c of rayCells(this.game.size, way)) {
+    for (const c of this.game.pathOf(way)?.cells ?? []) {
       const [px, py] = this.toPx(c);
       ctx.beginPath();
       ctx.arc(px, py, cell * 0.11, 0, Math.PI * 2);
@@ -397,20 +465,14 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawArrow(arrow, points, { alpha = 1, scale = 1, glow = 0 } = {}) {
+  // `front` / `back` are the unit directions of the heads at each end (null: no head there).
+  drawArrow(arrow, points, { alpha = 1, scale = 1, glow = 0, front = DIRS[arrow.dir], back = null } = {}) {
     if (alpha <= 0) return;
     const { ctx, cell } = this;
     const color = this.colors.palette[arrow.color];
-    const { dx, dy } = DIRS[arrow.dir];
-    const heads = [{ at: points[points.length - 1], dx, dy }];
-    if (arrow.both) {
-      // The tail head points back along the first body segment (or straight back for one cell).
-      const [a, b] = points;
-      const len = Math.hypot(a.x - b.x, a.y - b.y);
-      heads.push(len > 1e-3
-        ? { at: a, dx: (a.x - b.x) / len, dy: (a.y - b.y) / len }
-        : { at: a, dx: -dx, dy: -dy });
-    }
+    const heads = [];
+    if (front) heads.push({ at: points[points.length - 1], ...front });
+    if (back) heads.push({ at: points[0], ...back });
 
     const shaft = () => {
       ctx.beginPath();

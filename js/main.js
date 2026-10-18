@@ -284,10 +284,10 @@ function handleTap(cell) {
 
   const result = game.tap(arrow.id);
   if (result.type === 'exit') {
-    renderer.playExit(result.arrow, result.distance);
+    renderer.playExit(result);
     sound.exit();
   } else {
-    renderer.playBounce(arrow, result.distance);
+    renderer.playBounce(result);
     sound.bump();
     if (state.vibration) vibrate(18);
   }

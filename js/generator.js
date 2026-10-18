@@ -5,7 +5,7 @@
 import { createRng, hashSeed } from './rng.js';
 import { levelConfig } from './levels.js';
 import { shapeMask } from './shapes.js';
-import { DIRS, DIR_NAMES, buildGrid, rayCells, solve } from './game.js';
+import { DIRS, DIR_NAMES, buildGrid, exitPath, solve } from './game.js';
 
 export const PALETTE_SIZE = 12;
 
@@ -29,13 +29,14 @@ export function generateLevel(level) {
   // Several seeded attempts; keep the best fit for the level. Still deterministic.
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const rng = createRng(hashSeed(cfg.seed, attempt));
-    const arrows = buildBoard(cfg, mask, rng);
-    const { depth } = solve(cfg.size, arrows);
-    const coverage = arrows.reduce((n, a) => n + a.cells.length, 0) / openCells(cfg.size, mask);
+    const obstacles = placeObstacles(cfg, rng);
+    const arrows = buildBoard(cfg, mask, obstacles, rng);
+    const { depth } = solve(cfg.size, arrows, obstacles);
+    const coverage = arrows.reduce((n, a) => n + a.cells.length, 0) / (openCells(cfg.size, mask) - obstacles.length);
     // Easy levels cap the depth too: a board past `maxDepth` scores as if it fell short.
     const fit = depth > cfg.maxDepth ? 2 * cfg.maxDepth - depth : depth;
     const score = fit + coverage * (mask ? 10 : 1);
-    if (!best || score > best.score) best = { arrows, depth, score, rng };
+    if (!best || score > best.score) best = { arrows, obstacles, depth, score, rng };
     if (depth >= cfg.minDepth && depth <= cfg.maxDepth && (!mask || coverage >= SHAPE_COVERAGE)) break;
   }
 
@@ -49,20 +50,40 @@ export function generateLevel(level) {
     mask,
     maxErrors: cfg.maxErrors,
     tier: cfg.tier,
+    obstacles: best.obstacles,
   };
+}
+
+// Turns and holes go on inner cells, never touching each other, so every one of them
+// has room around it to matter. Only rolls the RNG when the level has obstacles.
+function placeObstacles(cfg, rng) {
+  const { size, turns = 0, holes = 0 } = cfg;
+  if (!turns && !holes) return [];
+  const inner = [];
+  for (let y = 1; y < size - 1; y++) for (let x = 1; x < size - 1; x++) inner.push({ x, y });
+  rng.shuffle(inner);
+  const placed = [];
+  for (const c of inner) {
+    if (placed.length === turns + holes) break;
+    if (placed.some((o) => Math.abs(o.x - c.x) <= 1 && Math.abs(o.y - c.y) <= 1)) continue;
+    placed.push(placed.length < turns ? { ...c, kind: 'turn', dir: rng.pick(DIR_NAMES) } : { ...c, kind: 'hole' });
+  }
+  return placed;
 }
 
 const openCells = (size, mask) => (mask ? mask.reduce((n, v) => n + v, 0) : size * size);
 
-function buildBoard(cfg, mask, rng) {
+function buildBoard(cfg, mask, obstacles, rng) {
   const { size } = cfg;
   const grid = new Int16Array(size * size).fill(-1);
   // Cells outside a picture are walled off (-2), so arrows never start or grow there.
   if (mask) {
     for (let i = 0; i < grid.length; i++) if (!mask[i]) grid[i] = -2;
   }
+  for (const o of obstacles) grid[o.y * size + o.x] = -3; // obstacles hold no arrows either
+  const paths = buildGrid(size, [], obstacles); // where turns and holes send arrows
   const arrows = [];
-  const target = Math.round(openCells(size, mask) * cfg.fill);
+  const target = Math.round((openCells(size, mask) - obstacles.length) * cfg.fill);
   let covered = 0;
 
   const starts = [];
@@ -78,14 +99,15 @@ function buildBoard(cfg, mask, rng) {
     const candidates = [];
     for (let i = 0; i < CANDIDATES_PER_CELL; i++) {
       const arrow = randomArrow(arrows.length, start, cfg, rng, grid);
-      if (arrow) candidates.push({ arrow, score: rayCells(size, arrow).length + rng.next() * size * 0.5 });
+      const path = arrow && exitPath(size, paths, arrow);
+      if (path) candidates.push({ arrow, score: path.cells.length + rng.next() * size * 0.5 });
     }
     candidates.sort((a, b) => b.score - a.score);
 
     // Keep an arrow only if the board stays solvable and no more tangled than the level allows.
     for (const { arrow } of candidates) {
       arrows.push(arrow);
-      const { solvable, depth } = solve(size, arrows);
+      const { solvable, depth } = solve(size, arrows, obstacles);
       if (solvable && depth <= cfg.maxDepth) {
         for (const c of arrow.cells) grid[c.y * size + c.x] = arrow.id;
         covered += arrow.cells.length;

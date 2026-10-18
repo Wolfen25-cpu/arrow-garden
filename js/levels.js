@@ -53,8 +53,13 @@ function tierFor(level) {
   return level <= WARMUP && tier !== 'easy' ? 'medium' : tier;
 }
 
-// Double arrows appear from level 21 on medium and harder boards.
+// Double arrows appear from level 21 on medium and harder boards,
+// turns from level 31 and holes from level 41 (never on pictures).
 const DOUBLES_FROM = 21;
+const TURNS_FROM = 31;
+const HOLES_FROM = 41;
+const TURNS = { easy: 1, medium: 2, hard: 2, expert: 3 };
+const HOLES = { easy: 1, medium: 1, hard: 2, expert: 2 };
 
 // Some levels allow only a few bumps before starting over: 3, or 2 from level 50
 // (expert boards keep 3, so they stay fair).
@@ -104,6 +109,8 @@ export function levelConfig(level) {
     minDepth: shape ? Math.min(t.minDepth, 8) : t.minDepth,
     maxDepth: shape ? t.maxDepth + 4 : t.maxDepth,
     doubleChance: !shape && level >= DOUBLES_FROM && tier !== 'easy' ? 0.12 : 0,
+    turns: !shape && level >= TURNS_FROM ? TURNS[tier] : 0,
+    holes: !shape && level >= HOLES_FROM ? HOLES[tier] : 0,
     seed,
   };
 }

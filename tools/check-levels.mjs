@@ -3,7 +3,7 @@
 
 import { generateLevel } from '../js/generator.js';
 import { levelConfig } from '../js/levels.js';
-import { DIRS, buildGrid, solve } from '../js/game.js';
+import { DIRS, buildGrid, exitPath, reversed, solve } from '../js/game.js';
 
 const count = Number(process.argv[2] ?? 100);
 let failures = 0;
@@ -20,22 +20,33 @@ for (let level = 1; level <= count; level++) {
   const cfg = levelConfig(level);
   const { size, arrows } = data;
 
-  if (!solve(size, arrows).solvable) fail(level, 'sin solución');
+  const obstacles = data.obstacles ?? [];
+  if (!solve(size, arrows, obstacles).solvable) fail(level, 'sin solución');
   if (JSON.stringify(generateLevel(level)) !== JSON.stringify(data)) fail(level, 'no determinista');
 
   const grid = buildGrid(size, []);
+  for (const o of obstacles) {
+    if (o.x < 0 || o.y < 0 || o.x >= size || o.y >= size) fail(level, 'obstáculo fuera del tablero');
+    if (grid[o.y * size + o.x] !== -1) fail(level, 'obstáculos superpuestos');
+    grid[o.y * size + o.x] = -5;
+  }
+  const paths = buildGrid(size, [], obstacles);
   for (const arrow of arrows) {
     if (arrow.cells.length < 1 || arrow.cells.length > 4) fail(level, `largo inválido ${arrow.cells.length}`);
     for (let i = 0; i < arrow.cells.length; i++) {
       const c = arrow.cells[i];
       if (c.x < 0 || c.y < 0 || c.x >= size || c.y >= size) fail(level, 'celda fuera del tablero');
       if (data.mask && !data.mask[c.y * size + c.x]) fail(level, 'celda fuera de la figura');
-      if (grid[c.y * size + c.x] !== -1) fail(level, 'flechas superpuestas');
+      if (grid[c.y * size + c.x] === -5) fail(level, 'flecha sobre un obstáculo');
+      else if (grid[c.y * size + c.x] !== -1) fail(level, 'flechas superpuestas');
       grid[c.y * size + c.x] = arrow.id;
       if (i > 0) {
         const p = arrow.cells[i - 1];
         if (Math.abs(c.x - p.x) + Math.abs(c.y - p.y) !== 1) fail(level, 'cuerpo no contiguo');
       }
+    }
+    if (!exitPath(size, paths, arrow) && !(arrow.both && exitPath(size, paths, reversed(arrow)))) {
+      fail(level, 'camino de salida en bucle');
     }
     if (arrow.cells.length > 1) {
       const [a, b] = arrow.cells.slice(-2);
@@ -53,7 +64,9 @@ for (let level = 1; level <= count; level++) {
       `  profundidad ${data.depth}/${cfg.minDepth}  ${ms.toFixed(0)} ms` +
       `  ${cfg.tier}` +
       (data.shape ? `  figura ${data.shape}` : '') +
-      (data.maxErrors ? `  errores ${data.maxErrors}` : ''),
+      (data.maxErrors ? `  errores ${data.maxErrors}` : '') +
+      (arrows.some((a) => a.both) ? `  dobles ${arrows.filter((a) => a.both).length}` : '') +
+      (obstacles.length ? `  obstáculos ${obstacles.map((o) => (o.kind === 'hole' ? 'O' : '↻')).join('')}` : ''),
   );
 }
 
