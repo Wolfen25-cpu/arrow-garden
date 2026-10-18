@@ -69,21 +69,31 @@ export function solve(size, arrows) {
 }
 
 export class Game {
-  constructor({ level, size, arrows }) {
+  // `mask` (picture levels) marks the cells that belong to the figure; null means the whole board.
+  // `maxErrors` > 0 limits how many bumps are allowed before the level must start over.
+  constructor({ level, size, arrows, shape = null, mask = null, maxErrors = 0 }) {
     this.level = level;
     this.size = size;
     this.initial = arrows;
+    this.shape = shape;
+    this.mask = mask;
+    this.maxErrors = maxErrors;
     this.restart();
   }
 
   restart() {
     this.arrows = this.initial.slice();
     this.moves = 0;
+    this.errors = 0;
     this.history = [];
   }
 
   get isWon() {
     return this.arrows.length === 0;
+  }
+
+  get isLost() {
+    return this.maxErrors > 0 && this.errors >= this.maxErrors;
   }
 
   get canUndo() {
@@ -96,13 +106,17 @@ export class Game {
 
   // Every tap counts as a move. Returns what happened so render and audio can react:
   // `distance` is how many free cells lie ahead (to the edge, or to the blocker).
+  // A bump counts as an error; undo never gives errors back.
   tap(id) {
     const arrow = this.arrows.find((a) => a.id === id);
-    if (!arrow) return null;
+    if (!arrow || this.isLost) return null;
 
     const block = blockIndex(this.size, buildGrid(this.size, this.arrows), arrow);
     this.moves++;
-    if (block !== -1) return { type: 'blocked', arrow, distance: block };
+    if (block !== -1) {
+      this.errors++;
+      return { type: 'blocked', arrow, distance: block };
+    }
 
     this.history.push({ arrows: this.arrows, moves: this.moves - 1 });
     this.arrows = this.arrows.filter((a) => a !== arrow);

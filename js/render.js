@@ -330,24 +330,51 @@ export class Renderer {
   drawBoard() {
     const { ctx, cell, game } = this;
     const pad = cell * 0.18;
-    ctx.beginPath();
-    ctx.roundRect(this.ox - pad, this.oy - pad, this.boardPx + pad * 2, this.boardPx + pad * 2, cell * 0.45);
-    ctx.fillStyle = this.colors.board;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = this.colors.edge;
-    ctx.stroke();
+    const { mask } = game;
+    if (mask) {
+      this.drawSilhouette(mask, pad);
+    } else {
+      ctx.beginPath();
+      ctx.roundRect(this.ox - pad, this.oy - pad, this.boardPx + pad * 2, this.boardPx + pad * 2, cell * 0.45);
+      ctx.fillStyle = this.colors.board;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = this.colors.edge;
+      ctx.stroke();
+    }
 
     ctx.fillStyle = this.colors.dot;
     const r = Math.max(1.5, cell * 0.055);
     for (let y = 0; y < game.size; y++) {
       for (let x = 0; x < game.size; x++) {
+        if (mask && !mask[y * game.size + x]) continue;
         const [px, py] = this.toPx({ x, y });
         ctx.beginPath();
         ctx.arc(px, py, r, 0, Math.PI * 2);
         ctx.fill();
       }
     }
+  }
+
+  // Picture levels: overlapping rounded cells merge into the figure's outline.
+  // Painting the edge colour slightly larger first gives it a border without inner seams.
+  drawSilhouette(mask, pad) {
+    const { ctx, cell, game } = this;
+    const shape = (grow) => {
+      ctx.beginPath();
+      for (let i = 0; i < mask.length; i++) {
+        if (!mask[i]) continue;
+        const x = this.ox + (i % game.size) * cell - pad - grow;
+        const y = this.oy + Math.floor(i / game.size) * cell - pad - grow;
+        ctx.roundRect(x, y, cell + (pad + grow) * 2, cell + (pad + grow) * 2, cell * 0.4);
+      }
+    };
+    shape(2);
+    ctx.fillStyle = this.colors.edge;
+    ctx.fill();
+    shape(0);
+    ctx.fillStyle = this.colors.board;
+    ctx.fill();
   }
 
   // Soft dots along the way out, shown with a hint.

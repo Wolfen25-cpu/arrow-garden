@@ -80,7 +80,10 @@
         </button>
         <div class="level-info">
           <h2 id="level-label">Nivel 1</h2>
-          <p class="moves" id="moves-label">0 movimientos</p>
+          <div class="level-meta">
+            <p class="moves" id="moves-label">0 movimientos</p>
+            <p class="lives" id="lives-label" role="img" hidden></p>
+          </div>
         </div>
         <button class="icon-btn" id="btn-next" type="button" aria-label="Nivel siguiente">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
@@ -93,6 +96,7 @@
 
     <main class="stage">
       <canvas id="board" role="img" aria-label="Tablero de flechas. Toca una flecha para deslizarla fuera."></canvas>
+      <p class="notice" id="level-notice" hidden></p>
     </main>
 
     <nav class="controls" id="controls" aria-label="Controles del nivel">

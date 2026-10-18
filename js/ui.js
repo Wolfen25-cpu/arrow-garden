@@ -6,7 +6,10 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 const ICON_LOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 const ICON_CHECK = '<svg class="tile-check" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICON_HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8c0 5.5-7.5 10.1-7.5 10.1z"/></svg>';
+const ICON_PICTURE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><circle cx="12" cy="6.5" r="3"/><circle cx="12" cy="17.5" r="3"/><circle cx="6.5" cy="12" r="3"/><circle cx="17.5" cy="12" r="3"/></svg>';
 const TILE_TONES = 8;
+const NOTICE_MS = 3200;
 
 export function createUI(handlers) {
   const el = {
@@ -24,6 +27,8 @@ export function createUI(handlers) {
     toLevels: $('btn-to-levels'),
     level: $('level-label'),
     moves: $('moves-label'),
+    lives: $('lives-label'),
+    notice: $('level-notice'),
     prev: $('btn-prev'),
     next: $('btn-next'),
     controls: $('controls'),
@@ -95,7 +100,10 @@ export function createUI(handlers) {
   }
   if (!('vibrate' in navigator)) el.swVibration.closest('.row').hidden = true;
 
-  el.winNext.addEventListener('click', handlers.onWinNext);
+  // The overlay's main button moves on after a win, or retries after running out of errors.
+  let overlayAction = handlers.onWinNext;
+  let noticeTimer = 0;
+  el.winNext.addEventListener('click', () => overlayAction());
   el.winLevels.addEventListener('click', handlers.onLevels);
 
   document.addEventListener('keydown', (e) => {
@@ -118,7 +126,8 @@ export function createUI(handlers) {
     },
 
     // One tile per level: completed (pastel + check), open, or locked.
-    showLevels({ total, unlocked, completed, current }) {
+    // `info(n)` → { shape, maxErrors } adds a badge for picture and limited levels.
+    showLevels({ total, unlocked, completed, current, info }) {
       showScreen('levels');
       el.levelsSummary.textContent = `${Math.min(completed, total)} de ${total} niveles completados`;
       const tiles = [];
@@ -131,8 +140,13 @@ export function createUI(handlers) {
         tile.dataset.state = locked ? 'locked' : done ? 'done' : 'open';
         tile.dataset.tone = String((n - 1) % TILE_TONES);
         tile.disabled = locked;
-        tile.innerHTML = locked ? ICON_LOCK : `<span>${n}</span>${done ? ICON_CHECK : ''}`;
-        tile.setAttribute('aria-label', `Nivel ${n}${locked ? ', bloqueado' : done ? ', completado' : ''}`);
+        const { shapeLabel, maxErrors } = info(n);
+        const badge = maxErrors
+          ? `<span class="tile-badge">${ICON_HEART}${maxErrors}</span>`
+          : shapeLabel ? `<span class="tile-badge">${ICON_PICTURE}</span>` : '';
+        tile.innerHTML = (locked ? ICON_LOCK : `<span>${n}</span>${done ? ICON_CHECK : ''}`) + badge;
+        const extra = maxErrors ? `, ${plural(maxErrors, 'choque permitido', 'choques permitidos')}` : shapeLabel ? `, figura: ${shapeLabel}` : '';
+        tile.setAttribute('aria-label', `Nivel ${n}${locked ? ', bloqueado' : done ? ', completado' : ''}${extra}`);
         if (n === current && !locked) {
           tile.classList.add('is-current');
           tile.setAttribute('aria-current', 'true');
@@ -159,6 +173,8 @@ export function createUI(handlers) {
       if (on) {
         el.level.textContent = 'Tutorial';
         el.moves.classList.add('is-hidden');
+        el.lives.hidden = true;
+        el.notice.hidden = true;
       }
     },
 
@@ -180,6 +196,27 @@ export function createUI(handlers) {
       el.moves.classList.toggle('is-hidden', !visible);
     },
 
+    // Hearts left before the level starts over; hidden on levels without a limit.
+    setLives(errors, maxErrors) {
+      el.lives.hidden = !maxErrors;
+      if (!maxErrors) return;
+      const left = Math.max(0, maxErrors - errors);
+      el.lives.innerHTML = Array.from({ length: maxErrors }, (_, i) =>
+        ICON_HEART.replace('<svg', `<svg class="${i < left ? 'is-full' : ''}"`)).join('');
+      el.lives.setAttribute('aria-label', `Te ${left === 1 ? 'queda' : 'quedan'} ${plural(left, 'choque', 'choques')} de ${maxErrors}`);
+    },
+
+    // Short message over the board when a level starts, e.g. its error limit.
+    notice(text) {
+      clearTimeout(noticeTimer);
+      el.notice.hidden = !text;
+      if (!text) return;
+      el.notice.textContent = text;
+      noticeTimer = setTimeout(() => {
+        el.notice.hidden = true;
+      }, NOTICE_MS);
+    },
+
     setUndo(enabled) {
       el.undo.disabled = !enabled;
     },
@@ -192,12 +229,25 @@ export function createUI(handlers) {
       if (radio) radio.checked = true;
     },
 
-    showWin({ moves, isLast }) {
+    showWin({ moves, isLast, shapeLabel }) {
+      const solved = `${plural(moves, 'movimiento', 'movimientos')}.`;
       el.winTitle.textContent = isLast ? '¡Jardín completado!' : '¡Nivel completado!';
       el.winDetail.textContent = isLast
-        ? `Has resuelto todos los niveles. Último nivel en ${plural(moves, 'movimiento', 'movimientos')}.`
-        : `Resuelto en ${plural(moves, 'movimiento', 'movimientos')}.`;
+        ? `Has resuelto todos los niveles. Último nivel en ${solved}`
+        : shapeLabel ? `Figura: ${shapeLabel}. Resuelto en ${solved}` : `Resuelto en ${solved}`;
       el.winNext.textContent = isLast ? 'Jugar de nuevo' : 'Siguiente nivel';
+      overlayAction = handlers.onWinNext;
+      el.win.classList.remove('is-lost');
+      el.win.hidden = false;
+      el.winNext.focus({ preventScroll: true });
+    },
+
+    showLose({ maxErrors }) {
+      el.winTitle.textContent = 'Se acabaron los choques';
+      el.winDetail.textContent = `Chocaste ${maxErrors} veces. Respira y vuelve a intentarlo: el tablero es el mismo.`;
+      el.winNext.textContent = 'Intentar de nuevo';
+      overlayAction = handlers.onRetry;
+      el.win.classList.add('is-lost');
       el.win.hidden = false;
       el.winNext.focus({ preventScroll: true });
     },

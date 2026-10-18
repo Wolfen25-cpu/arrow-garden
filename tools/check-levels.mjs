@@ -29,6 +29,7 @@ for (let level = 1; level <= count; level++) {
     for (let i = 0; i < arrow.cells.length; i++) {
       const c = arrow.cells[i];
       if (c.x < 0 || c.y < 0 || c.x >= size || c.y >= size) fail(level, 'celda fuera del tablero');
+      if (data.mask && !data.mask[c.y * size + c.x]) fail(level, 'celda fuera de la figura');
       if (grid[c.y * size + c.x] !== -1) fail(level, 'flechas superpuestas');
       grid[c.y * size + c.x] = arrow.id;
       if (i > 0) {
@@ -44,11 +45,14 @@ for (let level = 1; level <= count; level++) {
   }
 
   const covered = arrows.reduce((n, a) => n + a.cells.length, 0);
+  const open = data.mask ? data.mask.reduce((n, v) => n + v, 0) : size * size;
   const bent = arrows.filter((a) => new Set(a.cells.map((c) => c.x)).size > 1 && new Set(a.cells.map((c) => c.y)).size > 1).length;
   console.log(
     `nivel ${String(level).padStart(2)}  ${size}×${size}  flechas ${String(arrows.length).padStart(2)}` +
-      `  curvas ${String(bent).padStart(2)}  cobertura ${Math.round((covered / size / size) * 100)}%` +
-      `  profundidad ${data.depth}/${cfg.minDepth}  ${ms.toFixed(0)} ms`,
+      `  curvas ${String(bent).padStart(2)}  cobertura ${Math.round((covered / open) * 100)}%` +
+      `  profundidad ${data.depth}/${cfg.minDepth}  ${ms.toFixed(0)} ms` +
+      (data.shape ? `  figura ${data.shape}` : '') +
+      (data.maxErrors ? `  errores ${data.maxErrors}` : ''),
   );
 }
 

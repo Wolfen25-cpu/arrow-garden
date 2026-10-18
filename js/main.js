@@ -4,7 +4,8 @@
 
 import { Game } from './game.js';
 import { generateLevel } from './generator.js';
-import { LEVEL_COUNT } from './levels.js';
+import { LEVEL_COUNT, levelConfig } from './levels.js';
+import { shapeName } from './shapes.js';
 import { Renderer } from './render.js';
 import { attachInput } from './input.js';
 import { Sound, vibrate } from './audio.js';
@@ -42,6 +43,7 @@ const ui = createUI({
   onRestart: restart,
   onSettingsChange: changeSettings,
   onWinNext: () => startLevel(nextLevel()),
+  onRetry: retry,
 });
 
 const account = setupAccount({ ensureCloud });
@@ -69,13 +71,17 @@ function showLevels() {
     unlocked: Math.min(state.maxLevel, LEVEL_COUNT),
     completed: state.maxLevel - 1,
     current: state.level,
+    info: (n) => {
+      const { shape, maxErrors } = levelConfig(n);
+      return { shapeLabel: shapeName(shape), maxErrors };
+    },
   });
 }
 
 // Picking the level that is still in progress resumes it instead of starting over.
 function openLevel(level) {
   sound.unlock();
-  const resume = game && game.level === level && !game.isWon && game.moves > 0;
+  const resume = game && game.level === level && !game.isWon && !game.isLost && game.moves > 0;
   mode = 'play';
   ui.setTutorial(false);
   ui.showGame();
@@ -97,6 +103,17 @@ function startLevel(level) {
   sound.resetStreak();
   persist();
   refresh();
+  introduceLevel();
+}
+
+// Tells the player up front what is special about this level.
+function introduceLevel() {
+  const label = shapeName(game.shape);
+  let text = '';
+  if (game.maxErrors) text = `Cuidado: este nivel solo permite ${game.maxErrors} choques.`;
+  else if (label) text = `Nivel con figura: ${label}`;
+  ui.notice(text);
+  if (text) ui.announce(text);
 }
 
 // ---------- Tutorial ----------
@@ -226,12 +243,13 @@ function refresh() {
   if (mode !== 'play' || !game) return;
   ui.setLevel(state.level, Math.min(state.maxLevel, LEVEL_COUNT));
   ui.setMoves(game.moves, state.showMoves);
-  ui.setUndo(game.canUndo && !game.isWon);
+  ui.setLives(game.errors, game.maxErrors);
+  ui.setUndo(game.canUndo && !game.isWon && !game.isLost);
 }
 
 function handleTap(cell) {
   sound.unlock();
-  if (mode === 'home' || !game || game.isWon) return;
+  if ((mode !== 'play' && mode !== 'tutorial') || !game || game.isWon || game.isLost) return;
   const arrow = game.arrowAt(cell.x, cell.y);
   if (!arrow) return;
   // Keep the lesson on track: only the glowing arrow responds.
@@ -251,6 +269,7 @@ function handleTap(cell) {
     advanceTutorial(result);
   } else {
     if (game.isWon) completeLevel();
+    else if (game.isLost) loseLevel();
     refresh();
   }
 }
@@ -267,26 +286,45 @@ function completeLevel() {
   // Let the last arrow finish leaving before celebrating.
   winTimer = setTimeout(() => {
     sound.win();
-    ui.showWin({ moves: game.moves, isLast });
+    ui.showWin({ moves: game.moves, isLast, shapeLabel: shapeName(game.shape) });
     ui.announce(isLast ? '¡Has completado todos los niveles!' : `¡Nivel ${state.level} completado!`);
   }, renderer.calm ? 150 : 700);
 }
 
+// Out of errors: nothing is lost but this attempt; the same board is waiting.
+function loseLevel() {
+  ui.notice('');
+  // Let the bounce play out first.
+  winTimer = setTimeout(() => {
+    sound.lose();
+    ui.showLose({ maxErrors: game.maxErrors });
+    ui.announce('Se acabaron los choques. Puedes intentarlo de nuevo.');
+  }, renderer.calm ? 150 : 600);
+}
+
+function retry() {
+  restart();
+  introduceLevel();
+}
+
 function undo() {
-  if (mode !== 'play' || game.isWon || !game.undo()) return;
+  if (mode !== 'play' || game.isWon || game.isLost || !game.undo()) return;
   renderer.clearHint();
   renderer.requestDraw();
   refresh();
 }
 
 function hint() {
-  if (mode !== 'play' || game.isWon) return;
+  if (mode !== 'play' || game.isWon || game.isLost) return;
   const arrow = game.hint();
   if (arrow) renderer.showHint(arrow);
 }
 
 function restart() {
   if (mode !== 'play' || game.isWon) return;
+  // Also cancels a pending "out of errors" overlay.
+  clearTimeout(winTimer);
+  ui.hideWin();
   game.restart();
   sound.resetStreak();
   renderer.setGame(game);

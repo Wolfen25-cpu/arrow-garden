@@ -4,11 +4,14 @@
 
 import { createRng, hashSeed } from './rng.js';
 import { levelConfig } from './levels.js';
+import { shapeMask } from './shapes.js';
 import { DIRS, DIR_NAMES, buildGrid, rayCells, solve } from './game.js';
 
 export const PALETTE_SIZE = 12;
 
 const ATTEMPTS = 12;
+// A picture only reads when most of it is drawn, so coverage counts more there.
+const SHAPE_COVERAGE = 0.85;
 const CANDIDATES_PER_CELL = 6;
 
 const PERPENDICULAR = {
@@ -20,28 +23,43 @@ const PERPENDICULAR = {
 
 export function generateLevel(level) {
   const cfg = levelConfig(level);
+  const mask = cfg.shape ? shapeMask(cfg.shape, cfg.size) : null;
   let best = null;
 
   // Several seeded attempts; keep the most tangled board. Still deterministic.
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const rng = createRng(hashSeed(cfg.seed, attempt));
-    const arrows = buildBoard(cfg, rng);
+    const arrows = buildBoard(cfg, mask, rng);
     const { depth } = solve(cfg.size, arrows);
-    const coverage = arrows.reduce((n, a) => n + a.cells.length, 0) / (cfg.size * cfg.size);
-    const score = depth + coverage;
+    const coverage = arrows.reduce((n, a) => n + a.cells.length, 0) / openCells(cfg.size, mask);
+    const score = depth + coverage * (mask ? 10 : 1);
     if (!best || score > best.score) best = { arrows, depth, score, rng };
-    if (depth >= cfg.minDepth) break;
+    if (depth >= cfg.minDepth && (!mask || coverage >= SHAPE_COVERAGE)) break;
   }
 
   assignColors(best.arrows, cfg.size, best.rng);
-  return { level, size: cfg.size, arrows: best.arrows, depth: best.depth };
+  return {
+    level,
+    size: cfg.size,
+    arrows: best.arrows,
+    depth: best.depth,
+    shape: cfg.shape,
+    mask,
+    maxErrors: cfg.maxErrors,
+  };
 }
 
-function buildBoard(cfg, rng) {
+const openCells = (size, mask) => (mask ? mask.reduce((n, v) => n + v, 0) : size * size);
+
+function buildBoard(cfg, mask, rng) {
   const { size } = cfg;
   const grid = new Int16Array(size * size).fill(-1);
+  // Cells outside a picture are walled off (-2), so arrows never start or grow there.
+  if (mask) {
+    for (let i = 0; i < grid.length; i++) if (!mask[i]) grid[i] = -2;
+  }
   const arrows = [];
-  const target = Math.round(size * size * cfg.fill);
+  const target = Math.round(openCells(size, mask) * cfg.fill);
   let covered = 0;
 
   const starts = [];

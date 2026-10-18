@@ -63,6 +63,13 @@ export class Sound {
     this.tone(160, { dur: 0.18, gain: 0.14, slide: 0.75 });
   }
 
+  // Out of errors: a gentle falling phrase, never harsh.
+  lose() {
+    [7, 4, 0].forEach((step, i) => {
+      this.tone(392 * 2 ** (step / 12), { at: i * 0.14, dur: 0.5, type: 'triangle', gain: 0.06, slide: 0.98 });
+    });
+  }
+
   win() {
     [0, 4, 7, 12, 16].forEach((step, i) => {
       this.tone(523.25 * 2 ** (step / 12), { at: i * 0.1, dur: 0.7, type: 'triangle', gain: 0.07 });
