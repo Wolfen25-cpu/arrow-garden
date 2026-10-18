@@ -1,4 +1,4 @@
-# Jardín de Flechas
+# Arrow Garden
 
 Un puzzle de flechas relajante para el navegador. Toca una flecha y se desliza en la dirección
 a la que apunta hasta salir del tablero. Si otra flecha le bloquea el paso, rebota suavemente y
@@ -8,6 +8,8 @@ Sin temporizador, sin vidas, sin prisa.
 
 ## Características
 
+- **Pantalla de inicio** con Jugar, Tutorial, Ajustes y Cuenta.
+- **Tutorial interactivo** en un tablero de 3×3 que enseña a mover, a rebotar y las flechas con curva.
 - **10 niveles** generados proceduralmente, de 4×4 a 10×10. Las flechas son cada vez más
   largas (1 a 4 celdas) y algunas tienen curva.
 - **Siempre hay solución**: el generador solo acepta un tablero si existe un orden válido para
@@ -16,7 +18,7 @@ Sin temporizador, sin vidas, sin prisa.
 - Contador de movimientos (se puede ocultar).
 - Colores pastel, modo claro y oscuro (o automático según el sistema).
 - Animaciones suaves y partículas al salir cada flecha. Respeta *reducir movimiento* del sistema.
-- Sonidos suaves generados con Web Audio (sin archivos), con botón para silenciar.
+- Sonidos suaves generados con Web Audio (sin archivos), que se pueden silenciar en Ajustes.
 - Vibración corta al chocar, en móviles compatibles.
 - Progreso guardado automáticamente en el dispositivo.
 - **Cuentas opcionales y gratuitas** (Firebase) para seguir tu progreso en cualquier dispositivo.
@@ -117,7 +119,8 @@ js/render.js            Dibujo en Canvas, animaciones y partículas
 js/input.js             Toques y clics
 js/audio.js             Sonidos con Web Audio y vibración
 js/storage.js           Guardado en localStorage y combinación con la nube
-js/ui.js                Botones, ajustes y pantalla de nivel completado
+js/ui.js                Pantalla de inicio, botones, ajustes y nivel completado
+js/tutorial.js          Tablero y pasos del tutorial
 js/account.js           Diálogo de cuenta
 js/cloud.js             Firebase Auth + Firestore (carga diferida)
 js/firebase-config.js   Configuración pública de Firebase

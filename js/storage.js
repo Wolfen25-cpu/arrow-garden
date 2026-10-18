@@ -13,6 +13,7 @@ export const DEFAULTS = {
   progressAt: 0, // timestamps used to merge with cloud saves
   settingsAt: 0,
   account: false, // signed in last time: reconnect to the cloud on startup
+  tutorialDone: false,
 };
 
 const THEMES = ['auto', 'light', 'dark'];
@@ -34,6 +35,7 @@ export function sanitize(raw) {
     progressAt: time(data.progressAt),
     settingsAt: time(data.settingsAt),
     account: bool(data.account, DEFAULTS.account),
+    tutorialDone: bool(data.tutorialDone, DEFAULTS.tutorialDone),
   };
 }
 

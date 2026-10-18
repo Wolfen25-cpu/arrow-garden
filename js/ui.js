@@ -1,4 +1,4 @@
-// DOM side of the game: buttons, labels, overlays. All user-facing text lives here.
+// DOM side of the game: screens, buttons, labels, overlays. All user-facing text lives here.
 
 const $ = (id) => document.getElementById(id);
 
@@ -6,14 +6,26 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 export function createUI(handlers) {
   const el = {
+    home: $('home'),
+    app: $('app'),
+    play: $('btn-play'),
+    homeProgress: $('home-progress'),
+    tutorial: $('btn-tutorial'),
+    homeSettings: $('btn-home-settings'),
+    homeAccount: $('btn-home-account'),
+    homeBtn: $('btn-home'),
     level: $('level-label'),
     moves: $('moves-label'),
     prev: $('btn-prev'),
     next: $('btn-next'),
+    controls: $('controls'),
     undo: $('btn-undo'),
     hint: $('btn-hint'),
     restart: $('btn-restart'),
-    sound: $('btn-sound'),
+    coach: $('coach'),
+    coachText: $('coach-text'),
+    coachSkip: $('btn-coach-skip'),
+    coachDone: $('btn-coach-done'),
     status: $('sr-status'),
     settingsBtn: $('btn-settings'),
     settings: $('settings'),
@@ -26,12 +38,21 @@ export function createUI(handlers) {
     winNext: $('btn-win-next'),
   };
 
+  // Home screen
+  el.play.addEventListener('click', handlers.onPlay);
+  el.tutorial.addEventListener('click', handlers.onTutorial);
+  el.homeSettings.addEventListener('click', () => el.settings.showModal());
+  el.homeAccount.addEventListener('click', handlers.onAccount);
+
+  // Game screen
+  el.homeBtn.addEventListener('click', handlers.onHome);
   el.prev.addEventListener('click', handlers.onPrev);
   el.next.addEventListener('click', handlers.onNext);
   el.undo.addEventListener('click', handlers.onUndo);
   el.hint.addEventListener('click', handlers.onHint);
   el.restart.addEventListener('click', handlers.onRestart);
-  el.sound.addEventListener('click', handlers.onToggleSound);
+  el.coachSkip.addEventListener('click', handlers.onTutorialEnd);
+  el.coachDone.addEventListener('click', handlers.onTutorialEnd);
 
   // Settings dialog
   el.settingsBtn.addEventListener('click', () => el.settings.showModal());
@@ -59,7 +80,7 @@ export function createUI(handlers) {
   el.winNext.addEventListener('click', handlers.onWinNext);
 
   document.addEventListener('keydown', (e) => {
-    if (e.altKey || !el.win.hidden || e.target.closest('input, dialog')) return;
+    if (e.altKey || el.app.hidden || !el.win.hidden || e.target.closest('input, dialog')) return;
     const key = e.key.toLowerCase();
     if (key === 'z' && !e.shiftKey) handlers.onUndo();
     else if (key === 'h' && !e.ctrlKey && !e.metaKey) handlers.onHint();
@@ -69,6 +90,39 @@ export function createUI(handlers) {
   });
 
   return {
+    showHome({ level, tutorialDone }) {
+      el.app.hidden = true;
+      el.home.hidden = false;
+      el.homeProgress.textContent = level > 1 ? `Continuar en el nivel ${level}` : 'Empieza en el nivel 1';
+      el.tutorial.classList.toggle('is-new', !tutorialDone);
+      el.tutorial.setAttribute('aria-label', tutorialDone ? 'Tutorial' : 'Tutorial (recomendado la primera vez)');
+      el.play.focus({ preventScroll: true });
+    },
+
+    showGame() {
+      el.home.hidden = true;
+      el.app.hidden = false;
+    },
+
+    // Tutorial swaps the level controls for the coach panel.
+    setTutorial(on) {
+      el.controls.hidden = on;
+      el.coach.hidden = !on;
+      el.prev.classList.toggle('is-invisible', on);
+      el.next.classList.toggle('is-invisible', on);
+      if (on) {
+        el.level.textContent = 'Tutorial';
+        el.moves.classList.add('is-hidden');
+      }
+    },
+
+    setCoach(text, { done = false } = {}) {
+      el.coachText.textContent = text;
+      el.coachSkip.hidden = done;
+      el.coachDone.hidden = !done;
+      if (done) el.coachDone.focus({ preventScroll: true });
+    },
+
     setLevel(level, unlocked) {
       el.level.textContent = `Nivel ${level}`;
       el.prev.disabled = level <= 1;
@@ -85,8 +139,6 @@ export function createUI(handlers) {
     },
 
     setSettings({ muted, vibration, showMoves, theme }) {
-      el.sound.setAttribute('aria-pressed', String(muted));
-      el.sound.setAttribute('aria-label', muted ? 'Activar sonido' : 'Silenciar sonido');
       el.swSound.setAttribute('aria-checked', String(!muted));
       el.swVibration.setAttribute('aria-checked', String(vibration));
       el.swMoves.setAttribute('aria-checked', String(showMoves));

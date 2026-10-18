@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Jardín de Flechas (arrow-garden): a relaxing arrow puzzle for the browser, published on GitHub Pages.
+Arrow Garden (arrow-garden): a relaxing arrow puzzle for the browser, published on GitHub Pages.
 
 ## Project rules
 
@@ -24,7 +24,9 @@ Jardín de Flechas (arrow-garden): a relaxing arrow puzzle for the browser, publ
 ## Architecture
 
 ```
-main.js ── wires everything; owns `state` (progress + settings) and the current `Game`
+main.js ── wires everything; owns `state` (progress + settings), the current `Game`
+  │          and `mode`: 'home' (start screen) | 'play' | 'tutorial'
+  ├─ tutorial.js ─── fixed 3×3 board + scripted steps (target arrow, expected result, text)
   ├─ generator.js ── generateLevel(n) → { level, size, arrows, depth }
   │    ├─ levels.js   levelConfig(n): size, arrow lengths, bend chance, fill, min depth, seed
   │    └─ rng.js      createRng(seed), hashSeed(...)
@@ -32,7 +34,8 @@ main.js ── wires everything; owns `state` (progress + settings) and the curr
   ├─ render.js ───── Canvas 2D renderer; animations only, never mutates the game
   ├─ input.js ────── pointer tap → board cell
   ├─ audio.js ────── Web Audio synth (Sound) + vibrate()
-  ├─ ui.js ───────── DOM: top bar, controls, settings dialog, win overlay, keyboard shortcuts
+  ├─ ui.js ───────── DOM: home screen, top bar, controls, tutorial coach, settings dialog,
+  │                  win overlay, keyboard shortcuts
   ├─ storage.js ──── localStorage load/save, sanitize(), mergeProgress()
   └─ account.js ──── account dialog → cloud.js (Firebase, lazy-loaded from gstatic CDN)
 ```
