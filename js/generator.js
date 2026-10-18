@@ -1,0 +1,127 @@
+// Procedural level generation. Every board it returns is solvable:
+// arrows are added one at a time and kept only if the greedy solver still
+// clears the whole board, so a valid exit order always exists.
+
+import { createRng, hashSeed } from './rng.js';
+import { levelConfig } from './levels.js';
+import { DIRS, DIR_NAMES, buildGrid, rayCells, solve } from './game.js';
+
+export const PALETTE_SIZE = 12;
+
+const ATTEMPTS = 12;
+const CANDIDATES_PER_CELL = 6;
+
+const PERPENDICULAR = {
+  up: ['left', 'right'],
+  down: ['left', 'right'],
+  left: ['up', 'down'],
+  right: ['up', 'down'],
+};
+
+export function generateLevel(level) {
+  const cfg = levelConfig(level);
+  let best = null;
+
+  // Several seeded attempts; keep the most tangled board. Still deterministic.
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    const rng = createRng(hashSeed(cfg.seed, attempt));
+    const arrows = buildBoard(cfg, rng);
+    const { depth } = solve(cfg.size, arrows);
+    const coverage = arrows.reduce((n, a) => n + a.cells.length, 0) / (cfg.size * cfg.size);
+    const score = depth + coverage;
+    if (!best || score > best.score) best = { arrows, depth, score, rng };
+    if (depth >= cfg.minDepth) break;
+  }
+
+  assignColors(best.arrows, cfg.size, best.rng);
+  return { level, size: cfg.size, arrows: best.arrows, depth: best.depth };
+}
+
+function buildBoard(cfg, rng) {
+  const { size } = cfg;
+  const grid = new Int16Array(size * size).fill(-1);
+  const arrows = [];
+  const target = Math.round(size * size * cfg.fill);
+  let covered = 0;
+
+  const starts = [];
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) starts.push({ x, y });
+  rng.shuffle(starts);
+
+  for (const start of starts) {
+    if (covered >= target) break;
+    if (grid[start.y * size + start.x] !== -1) continue;
+
+    // Favour arrows with a long way to travel: they cross more of the board
+    // and create more dependencies, which makes the puzzle interesting.
+    const candidates = [];
+    for (let i = 0; i < CANDIDATES_PER_CELL; i++) {
+      const arrow = randomArrow(arrows.length, start, cfg, rng, grid);
+      if (arrow) candidates.push({ arrow, score: rayCells(size, arrow).length + rng.next() * size * 0.5 });
+    }
+    candidates.sort((a, b) => b.score - a.score);
+
+    for (const { arrow } of candidates) {
+      arrows.push(arrow);
+      if (solve(size, arrows).solvable) {
+        for (const c of arrow.cells) grid[c.y * size + c.x] = arrow.id;
+        covered += arrow.cells.length;
+        break;
+      }
+      arrows.pop();
+    }
+  }
+  return arrows;
+}
+
+// A random walk from `start` (the tail) with at most one 90° bend.
+// If it runs into a wall or another arrow it stops early, as long as the
+// result is still long enough.
+function randomArrow(id, start, cfg, rng, grid) {
+  const { size } = cfg;
+  const length = rng.int(cfg.minLength, cfg.maxLength);
+  // A bend at step 1 would just be a straight arrow, so bends start at step 2.
+  const bendStep = length >= 3 && rng.chance(cfg.bendChance) ? rng.int(2, length - 1) : 0;
+
+  let walk = rng.pick(DIR_NAMES);
+  let dir = walk;
+  const cells = [start];
+
+  for (let step = 1; step < length; step++) {
+    if (step === bendStep) walk = rng.pick(PERPENDICULAR[walk]);
+    const prev = cells[cells.length - 1];
+    const x = prev.x + DIRS[walk].dx;
+    const y = prev.y + DIRS[walk].dy;
+    if (x < 0 || y < 0 || x >= size || y >= size || grid[y * size + x] !== -1) break;
+    cells.push({ x, y });
+    dir = walk;
+  }
+
+  if (cells.length < cfg.minLength) return null;
+  return { id, cells, dir, color: 0 };
+}
+
+// Neighbouring arrows never share a colour; the starting hue varies per level.
+function assignColors(arrows, size, rng) {
+  const grid = buildGrid(size, arrows);
+  const colorOf = new Map();
+  const offset = rng.int(0, PALETTE_SIZE - 1);
+
+  arrows.forEach((arrow, i) => {
+    const near = new Set();
+    for (const c of arrow.cells) {
+      for (const { dx, dy } of Object.values(DIRS)) {
+        const x = c.x + dx;
+        const y = c.y + dy;
+        if (x < 0 || y < 0 || x >= size || y >= size) continue;
+        const other = grid[y * size + x];
+        if (other !== -1 && colorOf.has(other)) near.add(colorOf.get(other));
+      }
+    }
+    // Step by 5 (coprime with 12) so consecutive arrows get distant hues.
+    let color = (offset + i * 5) % PALETTE_SIZE;
+    for (let k = 0; k < PALETTE_SIZE && near.has(color); k++) color = (color + 1) % PALETTE_SIZE;
+    arrow.color = color;
+    colorOf.set(arrow.id, color);
+  });
+}

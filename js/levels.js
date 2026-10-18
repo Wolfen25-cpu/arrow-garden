@@ -17,8 +17,8 @@ export function levelConfig(level) {
     size: SIZES[i] ?? MAX_SIZE,
     minLength: i < 3 ? 1 : 2,
     maxLength: Math.min(4, 2 + Math.floor(i / 3)),
-    bendChance: 0.2 + 0.4 * t,
-    fill: 0.6 + 0.25 * t, // share of cells covered by arrows
+    bendChance: 0.3 + 0.45 * t,
+    fill: 0.5 + 0.35 * t, // share of cells covered by arrows
     minDepth: Math.min(8, 2 + Math.floor(i * 0.6)), // solver rounds required
     seed: hashSeed('arrow-garden', level),
   };
