@@ -3,22 +3,25 @@
 // Renderer (render.js), so main.js can swap them. Like Renderer, it never changes game
 // state: an arrow that has left the model keeps sliding here as a ghost until it fades.
 //
-// Arrows are drawn on the cube's surface. Their tracks are sampled every half cell, so a
-// body bending over an edge gets a point exactly on that edge and never cuts the corner.
+// Each visible face is drawn through its own affine transform, so arrows are flat 2D
+// arrows painted on the face (foreshortened with it) and clipped to its outline: nothing
+// sticks out whichever way the cube is turned. Tracks are sampled every half cell, so a
+// body bending over an edge has a point on that edge; seen from one face, the part on a
+// neighbouring face is unfolded flat beyond the edge, where the clip hides it.
 
 import { DIRS3, surface } from './game3d.js';
 import { PALETTES } from './render.js';
 
 // Arrow geometry, in cells (same proportions as the flat boards).
-const SHAFT = 0.3;
+const SHAFT = 0.32;
 const TAIL_INSET = 0.3;
 const HEAD_LENGTH = 0.36;
 const HEAD_HALF_WIDTH = 0.3;
 
 const LIGHT = normalize([-0.45, 0.75, 0.55]); // in view space
 const HINT_DURATION = 3200;
-const TURN_SPEED = 0.011; // radians per dragged pixel
-const MAX_PITCH = 1.35;
+// Dragging across the whole cube (two radii on screen) turns it about this far.
+const TURN_PER_DIAMETER = 2.6; // radians
 
 const clamp01 = (t) => Math.min(1, Math.max(0, t));
 const easeInOutQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -33,7 +36,22 @@ function normalize([x, y, z]) {
 
 const add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+// 3×3 rotation matrices as arrays of rows.
+const mul = (a, b) => a.map((row) => [0, 1, 2].map((j) => row[0] * b[0][j] + row[1] * b[1][j] + row[2] * b[2][j]));
+const rotX = (t) => [[1, 0, 0], [0, Math.cos(t), -Math.sin(t)], [0, Math.sin(t), Math.cos(t)]];
+const rotY = (t) => [[Math.cos(t), 0, Math.sin(t)], [0, 1, 0], [-Math.sin(t), 0, Math.cos(t)]];
+const apply = (m, v) => m.map((row) => dot(row, v));
+
+// Gram–Schmidt, so rounding errors from many small turns never skew the cube.
+function orthonormal([r0, r1]) {
+  const a = normalize(r0);
+  const b = normalize(add(r1, a, -dot(r1, a)));
+  return [a, b, [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]];
+}
+
+// Starting view: a little from above and to the side, so three faces show.
+const START_VIEW = mul(rotX(0.5), rotY(-0.62));
 
 export class Renderer3D {
   constructor(canvas) {
@@ -48,8 +66,7 @@ export class Renderer3D {
     this.raf = 0;
     this.w = 0;
     this.h = 0;
-    this.yaw = -0.62;
-    this.pitch = 0.5;
+    this.orientation = START_VIEW;
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     this.readTheme();
     new ResizeObserver(() => this.resize()).observe(canvas);
@@ -91,9 +108,8 @@ export class Renderer3D {
 
   layout() {
     if (!this.game) return;
-    // Seen from any angle the cube spans at most its space diagonal (√3 ≈ 1.73 sides);
-    // in practice the views it can be turned to stay under ~1.6, plus room for heads.
-    this.scale = (Math.min(this.w, this.h) * 0.92) / (this.game.size * 1.7);
+    // Seen from any angle the cube spans at most its space diagonal (√3 sides).
+    this.scale = (Math.min(this.w, this.h) * 0.94) / (this.game.size * Math.sqrt(3));
     this.ox = this.w / 2;
     this.oy = this.h / 2;
   }
@@ -104,42 +120,32 @@ export class Renderer3D {
     this.anims.clear();
     this.tracks = new WeakMap();
     this.hint = null;
+    this.orientation = START_VIEW;
     this.intro = game && entrance && !this.calm ? { start: performance.now() } : null;
     this.layout();
     this.requestDraw();
   }
 
-  // Turns the cube; called while the player drags (or presses the arrow keys).
+  // Trackball turn: the cube follows the finger whatever way it is facing. A horizontal
+  // drag spins it around the screen's vertical axis, a vertical drag around the screen's
+  // horizontal axis (screen y grows downwards, view y upwards, hence the sign).
   rotate(dx, dy) {
-    this.yaw += dx * TURN_SPEED;
-    this.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, this.pitch + dy * TURN_SPEED));
+    // Speed follows the cube's size on screen, so it feels like grabbing its surface.
+    const radius = (this.scale * this.game.size * Math.sqrt(3)) / 2;
+    const k = TURN_PER_DIAMETER / (2 * radius);
+    const turn = mul(rotY(dx * k), rotX(dy * k));
+    this.orientation = orthonormal(mul(turn, this.orientation));
     this.requestDraw();
   }
 
-  // World (cube corner at the origin) → view space: yaw around y, then pitch around x.
+  // World (cube corner at the origin) → view space; the viewer looks down −z.
   view(p) {
     const half = this.game.size / 2;
-    const x = p[0] - half;
-    const y = p[1] - half;
-    const z = p[2] - half;
-    const cy = Math.cos(this.yaw);
-    const sy = Math.sin(this.yaw);
-    const x1 = x * cy + z * sy;
-    const z1 = -x * sy + z * cy;
-    const cp = Math.cos(this.pitch);
-    const sp = Math.sin(this.pitch);
-    return [x1, y * cp - z1 * sp, y * sp + z1 * cp];
+    return apply(this.orientation, [p[0] - half, p[1] - half, p[2] - half]);
   }
 
-  // Directions only rotate (no centring).
-  viewDir([x, y, z]) {
-    const cy = Math.cos(this.yaw);
-    const sy = Math.sin(this.yaw);
-    const x1 = x * cy + z * sy;
-    const z1 = -x * sy + z * cy;
-    const cp = Math.cos(this.pitch);
-    const sp = Math.sin(this.pitch);
-    return [x1, y * cp - z1 * sp, y * sp + z1 * cp];
+  viewDir(d) {
+    return apply(this.orientation, d);
   }
 
   screen(p) {
@@ -151,6 +157,12 @@ export class Renderer3D {
     return this.geo.faces.map((f) => this.viewDir(f.normal)[2] > 0.02);
   }
 
+  // Screen corners of a face: its corner, and the ends of its u and v sides.
+  faceFrame(f) {
+    const { size } = this.game;
+    return [this.screen(f.corner), this.screen(add(f.corner, f.u, size)), this.screen(add(f.corner, f.v, size))];
+  }
+
   // The arrow under a point: find the visible face it lands on, then the cell. A face of
   // a cube seen orthographically is a parallelogram, so this is a 2×2 inverse.
   pick(px, py) {
@@ -159,10 +171,7 @@ export class Renderer3D {
     const visible = this.visibleFaces();
     for (let fi = 0; fi < 6; fi++) {
       if (!visible[fi]) continue;
-      const f = this.geo.faces[fi];
-      const [ax, ay] = this.screen(f.corner);
-      const [bx, by] = this.screen(add(f.corner, f.u, size));
-      const [cx, cy] = this.screen(add(f.corner, f.v, size));
+      const [[ax, ay], [bx, by], [cx, cy]] = this.faceFrame(this.geo.faces[fi]);
       const det = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
       if (Math.abs(det) < 1e-6) continue;
       const s = ((px - ax) * (cy - ay) - (py - ay) * (cx - ax)) / det;
@@ -273,14 +282,12 @@ export class Renderer3D {
   draw(now) {
     const { ctx, game } = this;
     if (!game || !this.w) return;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.clearRect(0, 0, this.w, this.h);
-    const visible = this.visibleFaces();
-    this.drawFaces(visible);
 
+    // Work out every arrow's pose first; then each face paints its share of them.
     let active = false;
     const hint = this.hintState(now);
     if (hint) active = true;
+    const poses = [];
     const live = new Set();
     let introDone = true;
 
@@ -303,9 +310,7 @@ export class Renderer3D {
         alpha = clamp01((now - this.intro.start - index * 22) / 320);
         if (alpha < 1) introDone = false;
       }
-      const glow = hint?.id === arrow.id ? hint.strength : 0;
-      if (glow) this.drawPath(arrow, glow, visible);
-      this.paintArrow(arrow, track, offset, visible, { alpha, glow });
+      poses.push({ arrow, track, offset, alpha, glow: hint?.id === arrow.id ? hint.strength : 0 });
     });
 
     if (this.intro) {
@@ -323,127 +328,169 @@ export class Renderer3D {
       active = true;
       const offset = easeInOutQuad(p) * anim.travel;
       const alpha = 1 - clamp01((offset - anim.edgeAt) / (anim.arrow.cells.length + 0.2));
-      this.paintArrow(anim.arrow, anim.track, offset, visible, { alpha });
+      poses.push({ arrow: anim.arrow, track: anim.track, offset, alpha, glow: 0 });
     }
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.w, this.h);
+    const visible = this.visibleFaces();
+    this.geo.faces.forEach((face, fi) => {
+      if (visible[fi]) this.drawFace(face, fi, poses, hint);
+    });
 
     if (active) this.requestDraw();
   }
 
-  // Visible faces as boards: softly shaded by the light, with a dot in every cell.
-  drawFaces(visible) {
-    const { ctx, game, geo } = this;
+  // One face: its board, then its share of every arrow in face coordinates (cells),
+  // clipped to the face, then a light-dependent shade over the lot.
+  drawFace(face, fi, poses, hint) {
+    const { ctx, dpr, game } = this;
     const { size } = game;
-    geo.faces.forEach((f, fi) => {
-      if (!visible[fi]) return;
-      const corners = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([a, b]) =>
-        this.screen(add(add(f.corner, f.u, a * size), f.v, b * size)));
+    const frame = this.faceFrame(face);
+    const [[ax, ay], [bx, by], [cx, cy]] = frame;
+    const outline = () => {
       ctx.beginPath();
-      corners.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
+      ctx.lineTo(bx + cx - ax, by + cy - ay);
+      ctx.lineTo(cx, cy);
       ctx.closePath();
-      ctx.fillStyle = this.colors.board;
-      ctx.fill();
-      const light = Math.max(0, dot(this.viewDir(f.normal), LIGHT));
-      ctx.fillStyle = `rgba(${this.colors.shade}, ${(0.14 * (1 - light)).toFixed(3)})`;
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = this.colors.edge;
-      ctx.stroke();
+    };
 
-      ctx.fillStyle = this.colors.dot;
-      const r = Math.max(1.5, this.scale * 0.055);
-      for (let v = 0; v < size; v++) {
-        for (let u = 0; u < size; u++) {
-          const [x, y] = this.screen(add(add(f.corner, f.u, u + 0.5), f.v, v + 0.5));
-          ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    });
-  }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    outline();
+    ctx.fillStyle = this.colors.board;
+    ctx.fill();
 
-  // Soft dots along the way out, shown with a hint.
-  drawPath(arrow, strength, visible) {
-    const { ctx, geo } = this;
     ctx.save();
-    ctx.globalAlpha = 0.6 * strength;
-    ctx.fillStyle = this.colors.palette[arrow.color];
-    for (const cell of this.game.pathOf(arrow)) {
-      if (!visible[geo.faceOf(cell)]) continue;
-      const [x, y] = this.screen(geo.centre(cell));
-      ctx.beginPath();
-      ctx.arc(x, y, this.scale * 0.11, 0, Math.PI * 2);
-      ctx.fill();
+    outline();
+    ctx.clip();
+    // Face coordinates: (u, v) in cells, (0, 0) at the face's corner.
+    const m = [(bx - ax) / size, (by - ay) / size, (cx - ax) / size, (cy - ay) / size, ax, ay];
+    const local = (shift = 0) => {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, dpr * shift);
+      ctx.transform(...m);
+    };
+    local();
+
+    ctx.fillStyle = this.colors.dot;
+    for (let v = 0; v < size; v++) {
+      for (let u = 0; u < size; u++) {
+        ctx.beginPath();
+        ctx.arc(u + 0.5, v + 0.5, 0.055, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const toLocal = this.unfolder(fi);
+    if (hint) {
+      const pose = poses.find((p) => p.arrow.id === hint.id);
+      if (pose) this.drawPath(pose.arrow, hint.strength, fi, toLocal);
+    }
+    for (const pose of poses) {
+      const shape = this.arrowShape(pose, fi, toLocal);
+      if (shape) this.paintShape(shape, pose, local);
     }
     ctx.restore();
+
+    // Shade by the light, over arrows too, so the faces read as one solid.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    outline();
+    const light = Math.max(0, dot(this.viewDir(face.normal), LIGHT));
+    ctx.fillStyle = `rgba(${this.colors.shade}, ${(0.16 * (1 - light)).toFixed(3)})`;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = this.colors.edge;
+    ctx.stroke();
   }
 
-  // Draws an arrow slid `offset` cells along `track`, segment by segment so the parts on
-  // faces turned away are skipped (an arrow bending over an edge shows only its near half).
-  paintArrow(arrow, { pts, faces }, offset, visible, { alpha = 1, glow = 0 } = {}) {
-    if (alpha <= 0) return;
-    const last = pts.length - 2;
-    const at = (s) => {
-      const i = Math.max(0, Math.min(last, Math.floor(s * 2)));
-      const f = s * 2 - i;
-      return add(pts[i], add(pts[i + 1], pts[i], -1), f);
+  // Maps a point lying on face `from` into face `fi`'s coordinates. A neighbouring face
+  // is unfolded flat beyond the shared edge (outside the clip); the opposite face never
+  // shows on this one, so it maps to null.
+  unfolder(fi) {
+    const face = this.geo.faces[fi];
+    return (p, from) => {
+      let q = p;
+      if (from !== fi) {
+        const other = this.geo.faces[from];
+        if (dot(other.normal, face.normal) < -0.5) return null;
+        const depth = -dot(add(p, face.corner, -1), face.normal);
+        q = add(add(p, face.normal, depth), other.normal, depth);
+      }
+      const rel = add(q, face.corner, -1);
+      return [dot(rel, face.u), dot(rel, face.v)];
     };
+  }
+
+  // The arrow's body as polylines and its head as a triangle, in face `fi` coordinates.
+  // Null when no part of it can touch this face.
+  arrowShape({ arrow, track: { pts, faces }, offset }, fi, toLocal) {
+    const near = (f) => f === fi || dot(this.geo.faces[f].normal, this.geo.faces[fi].normal) > -0.5;
+    const last = pts.length - 2;
     const s0 = 1 - TAIL_INSET + offset;
     const s1 = arrow.cells.length + offset;
+    const at = (s) => {
+      const i = Math.max(0, Math.min(last, Math.floor(s * 2)));
+      return add(pts[i], add(pts[i + 1], pts[i], -1), s * 2 - i);
+    };
 
-    // Runs of consecutive visible segments become polylines.
+    let touches = false;
     const runs = [];
     let run = null;
-    const first = Math.max(0, Math.floor(s0 * 2));
-    for (let i = first; i <= Math.min(last, Math.ceil(s1 * 2) - 1); i++) {
+    for (let i = Math.max(0, Math.floor(s0 * 2)); i <= Math.min(last, Math.ceil(s1 * 2) - 1); i++) {
       const a = Math.max(s0, i / 2);
       const b = Math.min(s1, (i + 1) / 2);
       if (b <= a) continue;
-      if (!visible[faces[i]]) {
+      if (!near(faces[i])) {
         run = null;
         continue;
       }
+      if (faces[i] === fi) touches = true;
       if (!run) {
-        run = [at(a)];
+        run = [toLocal(at(a), faces[i])];
         runs.push(run);
       }
-      run.push(at(b));
+      run.push(toLocal(at(b), faces[i]));
     }
 
-    // Head: on the face of the segment just ahead of it.
-    const hi = Math.max(0, Math.min(last, Math.floor(s1 * 2)));
-    const headFace = faces[hi];
     let head = null;
-    if (visible[headFace]) {
-      const d = normalize(add(pts[hi + 1], pts[hi], -1));
-      const side = cross(this.geo.faces[headFace].normal, d);
-      const p = at(s1);
-      const base = add(p, d, -0.04);
-      head = [add(p, d, HEAD_LENGTH), add(base, side, HEAD_HALF_WIDTH), add(base, side, -HEAD_HALF_WIDTH)]
-        .map((q) => this.screen(q));
+    const hi = Math.max(0, Math.min(last, Math.floor(s1 * 2)));
+    if (near(faces[hi])) {
+      const p = toLocal(at(s1), faces[hi]);
+      const ahead = toLocal(add(at(s1), add(pts[hi + 1], pts[hi], -1), 2), faces[hi]);
+      const len = Math.hypot(ahead[0] - p[0], ahead[1] - p[1]);
+      const [dx, dy] = [(ahead[0] - p[0]) / len, (ahead[1] - p[1]) / len];
+      const base = [p[0] - dx * 0.04, p[1] - dy * 0.04];
+      head = [
+        [p[0] + dx * HEAD_LENGTH, p[1] + dy * HEAD_LENGTH],
+        [base[0] - dy * HEAD_HALF_WIDTH, base[1] + dx * HEAD_HALF_WIDTH],
+        [base[0] + dy * HEAD_HALF_WIDTH, base[1] - dx * HEAD_HALF_WIDTH],
+      ];
+      if (faces[hi] === fi) touches = true;
     }
+    return touches ? { runs, head } : null;
+  }
 
-    const { ctx, scale } = this;
+  // Same look as the flat boards: a soft shadow, then the arrow; a glow for hints.
+  paintShape({ runs, head }, { arrow, alpha, glow }, local) {
+    if (alpha <= 0) return;
+    const { ctx } = this;
     const color = this.colors.palette[arrow.color];
-    const stroke = (style, width) => {
+    const body = (style, width) => {
       ctx.strokeStyle = style;
       ctx.lineWidth = width;
       for (const points of runs) {
         ctx.beginPath();
-        points.forEach((q, i) => {
-          const [x, y] = this.screen(q);
-          if (i) ctx.lineTo(x, y);
-          else ctx.moveTo(x, y);
-        });
+        points.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
         ctx.stroke();
       }
     };
-    const paint = (style, width) => {
-      stroke(style, width);
+    const paint = (style) => {
+      body(style, SHAFT);
       if (!head) return;
       ctx.fillStyle = style;
-      ctx.lineWidth = scale * 0.1; // rounds the arrowhead corners
+      ctx.lineWidth = 0.1; // rounds the arrowhead corners
       ctx.beginPath();
       head.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
       ctx.closePath();
@@ -451,19 +498,33 @@ export class Renderer3D {
       ctx.stroke();
     };
 
-    ctx.save();
     ctx.globalAlpha = alpha;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     if (glow) {
       ctx.globalAlpha = alpha * 0.35 * glow;
-      stroke(color, scale * (SHAFT + 0.4 * glow));
+      body(color, SHAFT + 0.4 * glow);
       ctx.globalAlpha = alpha;
     }
-    ctx.translate(0, scale * 0.05);
-    paint(this.colors.shadow, scale * SHAFT);
-    ctx.translate(0, -scale * 0.05);
-    paint(color, scale * SHAFT);
-    ctx.restore();
+    local(this.scale * 0.05);
+    paint(this.colors.shadow);
+    local();
+    paint(color);
+    ctx.globalAlpha = 1;
+  }
+
+  // Soft dots along the way out, shown with a hint.
+  drawPath(arrow, strength, fi, toLocal) {
+    const { ctx, geo } = this;
+    ctx.globalAlpha = 0.6 * strength;
+    ctx.fillStyle = this.colors.palette[arrow.color];
+    for (const cell of this.game.pathOf(arrow)) {
+      if (geo.faceOf(cell) !== fi) continue;
+      const [x, y] = toLocal(geo.centre(cell), fi);
+      ctx.beginPath();
+      ctx.arc(x, y, 0.11, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
 }

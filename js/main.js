@@ -50,7 +50,7 @@ const ui = createUI({
   onWinNext: () => startLevel(nextLevel()),
   onRetry: retry,
   onLanguage: changeLanguage,
-  onRotate: (dx, dy) => renderer.rotate?.(dx, dy),
+  onRotate: (dx, dy) => (mode === 'play' ? renderer.rotate?.(dx, dy) : undefined),
 });
 
 const account = setupAccount({ ensureCloud });
