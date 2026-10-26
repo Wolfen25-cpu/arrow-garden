@@ -29,7 +29,7 @@ export function generateLevel(level) {
   let best = null;
 
   // Several seeded attempts; keep the best fit for the level. Still deterministic.
-  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < attemptsFor(cfg); attempt++) {
     const rng = createRng(hashSeed(cfg.seed, attempt));
     const obstacles = placeObstacles(cfg, rng);
     const arrows = buildBoard(cfg, mask, obstacles, rng);
@@ -92,7 +92,7 @@ function buildBoard(cfg, mask, obstacles, rng) {
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) starts.push({ x, y });
   rng.shuffle(starts);
 
-  for (const start of starts) {
+  for (const [start, pass] of passes(cfg, starts)) {
     if (covered >= target) break;
     if (grid[start.y * size + start.x] !== -1) continue;
 
@@ -100,9 +100,9 @@ function buildBoard(cfg, mask, obstacles, rng) {
     // and create more dependencies, which makes the puzzle interesting.
     const candidates = [];
     for (let i = 0; i < CANDIDATES_PER_CELL; i++) {
-      const arrow = randomArrow(arrows.length, start, cfg, rng, grid);
+      const arrow = randomArrow(arrows.length, start, pass, rng, grid);
       const path = arrow && exitPath(size, paths, arrow);
-      if (path) candidates.push({ arrow, score: path.cells.length + rng.next() * size * 0.5 });
+      if (path) candidates.push({ arrow, score: path.cells.length + lengthBonus(pass, arrow) + rng.next() * size * 0.5 });
     }
     candidates.sort((a, b) => b.score - a.score);
 
@@ -121,25 +121,60 @@ function buildBoard(cfg, mask, obstacles, rng) {
   return arrows;
 }
 
-// A random walk from `start` (the tail) with at most one 90° bend.
-// If it runs into a wall or another arrow it stops early, as long as the
+// Winding levels (several bends allowed) also favour long bodies, not just long rays,
+// and get more attempts: long arrows fill a board in fewer pieces, so deep boards are rarer.
+const winding = (cfg) => (cfg.bends ?? 1) > 1;
+export const lengthBonus = (cfg, arrow) => (winding(cfg) ? arrow.cells.length : 0);
+export const attemptsFor = (cfg) => (winding(cfg) ? ATTEMPTS * 3 : ATTEMPTS);
+
+// Start cells to try, each with the settings to grow an arrow there. Winding levels take
+// a second pass with short, straight arrows to fill the gaps the long ones leave.
+export function* passes(cfg, starts) {
+  for (const start of starts) yield [start, cfg];
+  if (!winding(cfg)) return;
+  const filler = { ...cfg, minLength: Math.min(cfg.minLength, 2), maxLength: 3, bends: 0, bendChance: 0 };
+  for (const start of starts) yield [start, filler];
+}
+
+// Decides at which steps of a walk the arrow turns. With one bend allowed (the first
+// act) it rolls exactly as it always did, so those boards never change. With more, each
+// straight run is at least two cells, so the arrow still reads as a few clear strokes.
+// A bend at step 1 would just be a straight arrow, so bends start at step 2.
+export function bendPlan(cfg, length, rng) {
+  if (cfg.bends === 0) return () => false;
+  if ((cfg.bends ?? 1) <= 1) {
+    const bendStep = length >= 3 && rng.chance(cfg.bendChance) ? rng.int(2, length - 1) : 0;
+    return (step) => step === bendStep;
+  }
+  let bends = 0;
+  let last = 0;
+  return (step) => {
+    if (bends >= cfg.bends || step - last < 2 || !rng.chance(cfg.bendChance * 0.6)) return false;
+    bends++;
+    last = step;
+    return true;
+  };
+}
+
+// A random walk from `start` (the tail) with up to `cfg.bends` 90° bends.
+// If it runs into a wall, another arrow or itself it stops early, as long as the
 // result is still long enough.
 function randomArrow(id, start, cfg, rng, grid) {
   const { size } = cfg;
   const length = rng.int(cfg.minLength, cfg.maxLength);
-  // A bend at step 1 would just be a straight arrow, so bends start at step 2.
-  const bendStep = length >= 3 && rng.chance(cfg.bendChance) ? rng.int(2, length - 1) : 0;
+  const turn = bendPlan(cfg, length, rng);
 
   let walk = rng.pick(DIR_NAMES);
   let dir = walk;
   const cells = [start];
 
   for (let step = 1; step < length; step++) {
-    if (step === bendStep) walk = rng.pick(PERPENDICULAR[walk]);
+    if (turn(step)) walk = rng.pick(PERPENDICULAR[walk]);
     const prev = cells[cells.length - 1];
     const x = prev.x + DIRS[walk].dx;
     const y = prev.y + DIRS[walk].dy;
     if (x < 0 || y < 0 || x >= size || y >= size || grid[y * size + x] !== -1) break;
+    if (cells.some((c) => c.x === x && c.y === y)) break;
     cells.push({ x, y });
     dir = walk;
   }

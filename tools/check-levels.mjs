@@ -4,7 +4,7 @@
 import { generateLevel } from '../js/generator.js';
 import { levelConfig } from '../js/levels.js';
 import { DIRS, buildGrid, exitPath, reversed, solve } from '../js/game.js';
-import { solve3, surface } from '../js/game3d.js';
+import { exitPath3, solidId, solve3, surface } from '../js/game3d.js';
 
 const count = Number(process.argv[2] ?? 100);
 let failures = 0;
@@ -22,12 +22,14 @@ for (let level = 1; level <= count; level++) {
   const { size, arrows } = data;
 
   if (data.is3d) {
-    const geo = surface(size);
-    if (!solve3(size, arrows).solvable) fail(level, 'sin solución');
+    const solid = solidId(data);
+    const geo = surface(solid);
+    if (!solve3(solid, arrows).solvable) fail(level, 'sin solución');
     if (JSON.stringify(generateLevel(level)) !== JSON.stringify(data)) fail(level, 'no determinista');
     const used = new Set();
     for (const arrow of arrows) {
-      if (arrow.cells.length < 1 || arrow.cells.length > 4) fail(level, `largo inválido ${arrow.cells.length}`);
+      if (arrow.cells.length < 1 || arrow.cells.length > cfg.maxLength) fail(level, `largo inválido ${arrow.cells.length}`);
+      if (!exitPath3(solid, arrow)) fail(level, 'una pared bloquea la salida');
       arrow.cells.forEach((c, i) => {
         if (!Number.isInteger(c) || c < 0 || c >= geo.cellCount) fail(level, 'celda fuera del cubo');
         if (used.has(c)) fail(level, 'flechas superpuestas');
@@ -45,7 +47,7 @@ for (let level = 1; level <= count; level++) {
     }
     const crossing = arrows.filter((a) => new Set(a.cells.map((c) => geo.faceOf(c))).size > 1).length;
     console.log(
-      `nivel ${String(level).padStart(2)}  cubo ${size}×${size}  flechas ${String(arrows.length).padStart(2)}` +
+      `nivel ${String(level).padStart(2)}  ${solid} ${geo.dims.join('×')}  flechas ${String(arrows.length).padStart(2)}` +
         `  cruzan arista ${String(crossing).padStart(2)}  cobertura ${Math.round((used.size / geo.cellCount) * 100)}%` +
         `  profundidad ${data.depth}/${cfg.minDepth}  ${ms.toFixed(0)} ms  ${cfg.tier}  3D`,
     );
@@ -64,7 +66,7 @@ for (let level = 1; level <= count; level++) {
   }
   const paths = buildGrid(size, [], obstacles);
   for (const arrow of arrows) {
-    if (arrow.cells.length < 1 || arrow.cells.length > 4) fail(level, `largo inválido ${arrow.cells.length}`);
+    if (arrow.cells.length < 1 || arrow.cells.length > cfg.maxLength) fail(level, `largo inválido ${arrow.cells.length}`);
     for (let i = 0; i < arrow.cells.length; i++) {
       const c = arrow.cells[i];
       if (c.x < 0 || c.y < 0 || c.x >= size || c.y >= size) fail(level, 'celda fuera del tablero');
@@ -90,9 +92,14 @@ for (let level = 1; level <= count; level++) {
   const covered = arrows.reduce((n, a) => n + a.cells.length, 0);
   const open = data.mask ? data.mask.reduce((n, v) => n + v, 0) : size * size;
   const bent = arrows.filter((a) => new Set(a.cells.map((c) => c.x)).size > 1 && new Set(a.cells.map((c) => c.y)).size > 1).length;
+  const bends = arrows.reduce((n, a) => n + a.cells.slice(2).filter((c, i) => {
+    const [p, q] = [a.cells[i], a.cells[i + 1]];
+    return c.x - q.x !== q.x - p.x || c.y - q.y !== q.y - p.y;
+  }).length, 0);
+  const longest = Math.max(...arrows.map((a) => a.cells.length));
   console.log(
     `nivel ${String(level).padStart(2)}  ${size}×${size}  flechas ${String(arrows.length).padStart(2)}` +
-      `  curvas ${String(bent).padStart(2)}  cobertura ${Math.round((covered / open) * 100)}%` +
+      `  curvas ${String(bent).padStart(2)}/${String(bends).padStart(2)}  máx ${longest}  cobertura ${Math.round((covered / open) * 100)}%` +
       `  profundidad ${data.depth}/${cfg.minDepth}  ${ms.toFixed(0)} ms` +
       `  ${cfg.tier}` +
       (data.shape ? `  figura ${data.shape}` : '') +

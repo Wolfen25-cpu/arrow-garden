@@ -159,6 +159,7 @@ svg {
 [data-tier="medium"] { --tier: #4f8fe0; }
 [data-tier="hard"] { --tier: #e8913c; }
 [data-tier="expert"] { --tier: #e0564f; }
+[data-tier="master"] { --tier: #9b5de5; }
 
 .tier {
   display: flex;

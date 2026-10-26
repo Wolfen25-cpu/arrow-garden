@@ -154,6 +154,7 @@ export class Game {
     if (arrows.some((a) => a.both)) this.mechanics.push('double');
     if (obstacles.some((o) => o.kind === 'turn')) this.mechanics.push('turn');
     if (obstacles.some((o) => o.kind === 'hole')) this.mechanics.push('hole');
+    if (arrows.some((a) => a.cells.length > 4)) this.mechanics.push('long');
     this.restart();
   }
 

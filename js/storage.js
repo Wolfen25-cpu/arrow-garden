@@ -20,7 +20,7 @@ export const DEFAULTS = {
 
 const THEMES = ['auto', 'light', 'dark'];
 const LANGS = ['es', 'en'];
-const TIPS = ['double', 'turn', 'hole', 'cube'];
+const TIPS = ['double', 'turn', 'hole', 'cube', 'solid', 'long'];
 
 // Accepts anything (stored JSON, cloud data) and returns a well-formed state.
 export function sanitize(raw) {
