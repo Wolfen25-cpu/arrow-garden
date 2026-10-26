@@ -116,7 +116,7 @@ export function surface(id) {
     }
   };
 
-  const geometry = { id, dims, cells, cellCount: cells.length, faceOf, centre, step, inPlane, lineOut };
+  const geometry = { id, dims, cells, cellCount: cells.length, faceOf, centre, step, inPlane, lineOut, solid };
   surfaces.set(id, geometry);
   return geometry;
 }

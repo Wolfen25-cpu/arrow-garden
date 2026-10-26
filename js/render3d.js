@@ -25,6 +25,8 @@ const HINT_DURATION = 3200;
 const TURN_PER_DIAMETER = 2.6; // radians
 // Cells are filled and clipped a little past their outline, so neighbours never show a seam.
 const SEAM = 0.6; // px
+// Zooming in makes small cells big enough to tap on a phone.
+const MAX_ZOOM = 3.5;
 
 const clamp01 = (t) => Math.min(1, Math.max(0, t));
 const easeInOutQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
@@ -72,6 +74,8 @@ export class Renderer3D {
     this.w = 0;
     this.h = 0;
     this.orientation = START_VIEW;
+    this.zoom = 1;
+    this.pan = [0, 0]; // screen px the solid's centre is moved by while zoomed
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     this.readTheme();
     new ResizeObserver(() => this.resize()).observe(canvas);
@@ -93,10 +97,11 @@ export class Renderer3D {
       board: style.getPropertyValue('--board').trim(),
       edge: style.getPropertyValue('--board-edge').trim(),
       dot: style.getPropertyValue('--dot').trim(),
-      shade: dark ? '0, 0, 0' : '90, 64, 30',
-      shadow: dark ? 'rgba(0, 0, 0, 0.35)' : 'rgba(90, 64, 30, 0.16)',
+      shade: dark ? [0, 0, 0] : [90, 64, 30],
+      shadow: dark ? { rgb: [0, 0, 0], a: 0.35 } : { rgb: [90, 64, 30], a: 0.16 },
       palette: dark ? PALETTES.dark : PALETTES.light,
     };
+    this.tints = new Map(); // shaded colours, cached by colour and shade
     this.requestDraw();
   }
 
@@ -114,9 +119,41 @@ export class Renderer3D {
   layout() {
     if (!this.game) return;
     // Seen from any angle the solid spans at most its bounding box's diagonal.
-    this.scale = (Math.min(this.w, this.h) * 0.94) / Math.hypot(...this.geo.dims);
-    this.ox = this.w / 2;
-    this.oy = this.h / 2;
+    this.scale = (this.zoom * Math.min(this.w, this.h) * 0.94) / Math.hypot(...this.geo.dims);
+    // Zoomed in, the centre may move just far enough for every edge to reach the middle.
+    const reach = (this.zoom - 1) * 0.5;
+    this.pan = [
+      Math.max(-reach * this.w, Math.min(reach * this.w, this.pan[0])),
+      Math.max(-reach * this.h, Math.min(reach * this.h, this.pan[1])),
+    ];
+    this.ox = this.w / 2 + this.pan[0];
+    this.oy = this.h / 2 + this.pan[1];
+  }
+
+  // Zooms by `factor` keeping the point (x, y) on screen still (the centre by default).
+  zoomBy(factor, x = this.w / 2, y = this.h / 2) {
+    if (!this.game) return;
+    const zoom = Math.max(1, Math.min(MAX_ZOOM, this.zoom * factor));
+    const k = zoom / this.zoom;
+    this.pan = [(this.pan[0] + this.w / 2 - x) * k + x - this.w / 2, (this.pan[1] + this.h / 2 - y) * k + y - this.h / 2];
+    this.zoom = zoom;
+    this.layout();
+    this.requestDraw();
+  }
+
+  // Moves the zoomed view by (dx, dy) screen px.
+  panBy(dx, dy) {
+    if (!this.game) return;
+    this.pan = [this.pan[0] + dx, this.pan[1] + dy];
+    this.layout();
+    this.requestDraw();
+  }
+
+  resetZoom() {
+    this.zoom = 1;
+    this.pan = [0, 0];
+    this.layout();
+    this.requestDraw();
   }
 
   setGame(game, { entrance = true } = {}) {
@@ -127,6 +164,8 @@ export class Renderer3D {
     this.tracks = new WeakMap();
     this.hint = null;
     this.orientation = START_VIEW;
+    this.zoom = 1;
+    this.pan = [0, 0];
     this.intro = game && entrance && !this.calm ? { start: performance.now() } : null;
     this.layout();
     this.requestDraw();
@@ -180,13 +219,40 @@ export class Renderer3D {
   }
 
   // Cells turned towards the viewer, far to near: the order to paint them in.
+  // Cached per orientation: it only changes when the solid turns.
   visibleCells() {
+    if (this.visible?.orientation === this.orientation && this.visible.geo === this.geo) return this.visible.cells;
     const { geo } = this;
     const depth = geo.cells.map((_, cell) => this.view(geo.centre(cell))[2]);
-    return geo.cells
+    const cells = geo.cells
       .map((_, cell) => cell)
-      .filter((cell) => this.viewDir(geo.cells[cell].normal)[2] > 0.02)
+      .filter((cell) => this.viewDir(geo.cells[cell].normal)[2] > 0.02 && !this.hidden(cell))
       .sort((a, b) => depth[a] - depth[b]);
+    this.visible = { orientation: this.orientation, geo, cells };
+    return cells;
+  }
+
+  // Whether a cell lies wholly behind other parts of the solid (inside a tunnel, say).
+  // Such a cell would be painted over anyway, but its colour would still seep through
+  // the soft edges between the cells in front, so it is not painted at all. A cell counts
+  // as hidden when its centre and four points near its corners are all blocked.
+  hidden(cell) {
+    const { geo } = this;
+    const { corner, u, v, normal } = geo.cells[cell];
+    const toward = this.orientation[2]; // the viewer's direction, in world space
+    const { dims } = geo;
+    const limit = Math.hypot(...dims);
+    const blocked = (a, b) => {
+      let p = add(add(add(corner, u, a), v, b), normal, 0.01);
+      for (let t = 0; t < limit; t += 0.2) {
+        p = add(p, toward, 0.2);
+        const voxel = p.map(Math.floor);
+        if (voxel.some((c, i) => c < 0 || c >= dims[i])) return false;
+        if (geo.solid(voxel)) return true;
+      }
+      return false;
+    };
+    return [[0.5, 0.5], [0.08, 0.08], [0.92, 0.08], [0.08, 0.92], [0.92, 0.92]].every(([a, b]) => blocked(a, b));
   }
 
   // Screen corners of a cell: its corner, and the ends of its u and v sides.
@@ -199,7 +265,7 @@ export class Renderer3D {
   // orthographically is a parallelogram, so this is a 2×2 inverse.
   pick(px, py) {
     if (!this.game) return null;
-    for (const cell of this.visibleCells().reverse()) {
+    for (const cell of this.visibleCells().slice().reverse()) {
       const [[ax, ay], [bx, by], [cx, cy]] = this.cellFrame(cell);
       const det = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
       if (Math.abs(det) < 1e-6) continue;
@@ -362,7 +428,9 @@ export class Renderer3D {
     const reach = this.posesByCell(poses);
     const hinted = hint ? poses.find((p) => p.arrow.id === hint.id) : null;
     const hintPath = new Set(hinted ? this.game.pathOf(hinted.arrow) : []);
-    for (const cell of this.visibleCells()) {
+    const cells = this.visibleCells();
+    for (const cell of cells) this.drawUnderlay(cell);
+    for (const cell of cells) {
       this.drawCell(cell, reach.get(cell) ?? [], hintPath.has(cell) ? hinted : null, hint);
     }
 
@@ -390,52 +458,80 @@ export class Renderer3D {
     return reach;
   }
 
-  // One cell: its board, then its share of the arrows nearby in cell coordinates
-  // (0–1 across), clipped to the cell, then a light-dependent shade over the lot and
-  // an outline on the sides where the surface folds.
+  // A cell's screen transform (cell coordinates 0–1 across), how far to grow it by SEAM
+  // px along u and v, and how much the light shades it.
+  cellView(cell) {
+    const [[ax, ay], [bx, by], [cx, cy]] = this.cellFrame(cell);
+    const m = [bx - ax, by - ay, cx - ax, cy - ay, ax, ay];
+    // The two sides along u are |A×B| / |A| px apart.
+    const area = Math.abs(m[0] * m[3] - m[1] * m[2]) || 1;
+    const light = Math.max(0, dot(this.viewDir(this.geo.cells[cell].normal), LIGHT));
+    return {
+      m,
+      gu: Math.min(0.1, (SEAM * Math.hypot(m[2], m[3])) / area),
+      gv: Math.min(0.1, (SEAM * Math.hypot(m[0], m[1])) / area),
+      shade: Math.round(16 * (1 - light)) / 100,
+    };
+  }
+
+  // `hex` darkened by the light's shade, and then by `film` ({ rgb, a }) if given.
+  // Shading and shadows are mixed into opaque colours, not laid over as translucent
+  // films: a film doubles up along the soft edges between cells and shows as a line.
+  tint(hex, shade, film = null) {
+    const key = `${hex}|${shade}|${film ? 'film' : ''}`;
+    let rgb = this.tints.get(key);
+    if (!rgb) {
+      const mix = (a, b, k) => a.map((c, i) => c + (b[i] - c) * k);
+      let c = mix([1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)), this.colors.shade, shade);
+      if (film) c = mix(c, film.rgb, film.a);
+      rgb = `rgb(${c.map(Math.round).join(', ')})`;
+      this.tints.set(key, rgb);
+    }
+    return rgb;
+  }
+
+  // Board colour under a whole grown cell, so the soft edges between cells never let the
+  // page show through. Painted for every cell before any of them gets its arrows.
+  drawUnderlay(cell) {
+    const { ctx, dpr } = this;
+    const { m, gu, gv, shade } = this.cellView(cell);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.transform(...m);
+    ctx.fillStyle = this.tint(this.colors.board, shade);
+    ctx.fillRect(-gu, -gv, 1 + 2 * gu, 1 + 2 * gv);
+  }
+
+  // One cell: its board, then its share of the arrows nearby in cell coordinates,
+  // clipped to the cell grown by SEAM (so an arrow crossing into the next cell has no
+  // gap), then an outline on the sides where the surface folds.
   drawCell(cell, poses, hinted, hint) {
     const { ctx, dpr, geo } = this;
     const info = geo.cells[cell];
-    const [[ax, ay], [bx, by], [cx, cy]] = this.cellFrame(cell);
-    const m = [bx - ax, by - ay, cx - ax, cy - ay, ax, ay];
+    const { m, gu, gv, shade } = this.cellView(cell);
     const local = (shift = 0) => {
       ctx.setTransform(dpr, 0, 0, dpr, 0, dpr * shift);
       ctx.transform(...m);
     };
-    // Grown by SEAM px on screen; the two sides along u are |A×B| / |A| px apart.
-    const area = Math.abs(m[0] * m[3] - m[1] * m[2]) || 1;
-    const gu = Math.min(0.1, (SEAM * Math.hypot(m[2], m[3])) / area);
-    const gv = Math.min(0.1, (SEAM * Math.hypot(m[0], m[1])) / area);
-    const square = (eu = 0, ev = 0) => {
-      ctx.beginPath();
-      ctx.rect(-eu, -ev, 1 + 2 * eu, 1 + 2 * ev);
-    };
 
     ctx.save();
     local();
-    square(gu, gv);
-    ctx.fillStyle = this.colors.board;
-    ctx.fill();
+    ctx.fillStyle = this.tint(this.colors.board, shade);
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.beginPath();
+    ctx.rect(-gu, -gv, 1 + 2 * gu, 1 + 2 * gv);
     ctx.clip();
 
-    ctx.fillStyle = this.colors.dot;
+    ctx.fillStyle = this.tint(this.colors.dot, shade);
     ctx.beginPath();
     ctx.arc(0.5, 0.5, 0.055, 0, Math.PI * 2);
     ctx.fill();
 
-    if (hinted) this.drawPathDot(hinted.arrow, hint.strength);
+    if (hinted) this.drawPathDot(hinted.arrow, hint.strength, shade);
     const toLocal = this.unfolder(cell);
     for (const pose of poses) {
       const shape = this.arrowShape(pose, cell, toLocal);
-      if (shape) this.paintShape(shape, pose, local);
+      if (shape) this.paintShape(shape, pose, local, shade);
     }
-
-    // Shade by the light, over arrows too, so the sides read as one solid. It covers the
-    // grown cell like the rest: a nearer neighbour repaints the overlap from scratch.
-    square(gu, gv);
-    const light = Math.max(0, dot(this.viewDir(info.normal), LIGHT));
-    ctx.fillStyle = `rgba(${this.colors.shade}, ${(0.16 * (1 - light)).toFixed(3)})`;
-    ctx.fill();
     ctx.restore();
 
     // Outline the sides where the surface folds. Each side as [start, end] in cell
@@ -531,10 +627,10 @@ export class Renderer3D {
   }
 
   // Same look as the flat boards: a soft shadow, then the arrow; a glow for hints.
-  paintShape({ runs, head }, { arrow, alpha, glow }, local) {
+  paintShape({ runs, head }, { arrow, alpha, glow }, local, shade) {
     if (alpha <= 0) return;
     const { ctx } = this;
-    const color = this.colors.palette[arrow.color];
+    const color = this.tint(this.colors.palette[arrow.color], shade);
     const body = (style, width) => {
       ctx.strokeStyle = style;
       ctx.lineWidth = width;
@@ -565,17 +661,17 @@ export class Renderer3D {
       ctx.globalAlpha = alpha;
     }
     local(this.scale * 0.05);
-    paint(this.colors.shadow);
+    paint(this.tint(this.colors.board, shade, this.colors.shadow));
     local();
     paint(color);
     ctx.globalAlpha = 1;
   }
 
   // A soft dot on a cell along the way out, shown with a hint.
-  drawPathDot(arrow, strength) {
+  drawPathDot(arrow, strength, shade) {
     const { ctx } = this;
     ctx.globalAlpha = 0.6 * strength;
-    ctx.fillStyle = this.colors.palette[arrow.color];
+    ctx.fillStyle = this.tint(this.colors.palette[arrow.color], shade);
     ctx.beginPath();
     ctx.arc(0.5, 0.5, 0.11, 0, Math.PI * 2);
     ctx.fill();
