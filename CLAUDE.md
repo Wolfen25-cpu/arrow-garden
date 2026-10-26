@@ -126,6 +126,13 @@ to the real board edge, through the empty cells outside the picture.
   on a cell round an edge is unfolded flat past that edge (`unfolder`), where the clip hides
   it; only cells in `near[cell]` count. `pick()` inverts each visible cell's parallelogram,
   nearest first, so it does not depend on the last frame.
+- 3D colours: light shading and arrow shadows are mixed into opaque colours (`tint()`), never
+  laid over as translucent films, which would double up along cell edges and show as lines.
+  Cells wholly hidden behind the solid (`hidden()`, a ray per corner) are not painted either,
+  for the same reason. `visibleCells()` is cached per orientation.
+- 3D zoom: pinch (two fingers also move the view), mouse wheel, the +/− buttons (`#zoom`, 3D
+  levels only) and the + − 0 keys. `zoomBy(factor, x, y)` keeps that screen point still; the
+  pan is clamped so the solid never leaves the board. Zoom resets with each level.
 - 3D turning is a trackball: `orientation` is a rotation matrix and each drag pre-multiplies
   a turn about the screen axes, so the solid always follows the finger. Speed scales with the
   solid's size on screen (`TURN_PER_DIAMETER`).

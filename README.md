@@ -35,6 +35,9 @@ Si te quedas sin choques, el nivel vuelve a empezar y no pierdes nada más.
   marco con hueco, escalera, arco, cruz, túnel, pirámide escalonada y, al final, un cubo
   atravesado por tres túneles. Las flechas pueden subir por las paredes de los huecos; ninguna
   apunta a una pared.
+- **Zoom en 3D**: pellizca con dos dedos (y arrástralos para mover la vista), usa la rueda del
+  ratón, los botones + y − junto al tablero o las teclas + − 0, para que las celdas pequeñas
+  sean fáciles de tocar en el móvil.
 - **Niveles con límite de choques**: a partir del 13, uno de cada cuatro niveles permite solo 3
   choques (2 desde el nivel 50, salvo en los expertos). Se ven como corazones junto al contador.
 - **Siempre hay solución**: el generador solo acepta un tablero si existe un orden válido para
