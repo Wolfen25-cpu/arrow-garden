@@ -103,6 +103,14 @@
     <main class="stage">
       <canvas id="board" role="img" aria-label="Tablero de flechas. Toca una flecha para deslizarla fuera." data-i18n-aria="game.board"></canvas>
       <p class="notice" id="level-notice" hidden></p>
+      <div class="zoom" id="zoom" role="group" aria-label="Zoom" data-i18n-aria="game.zoom" hidden>
+        <button class="icon-btn" id="btn-zoom-in" type="button" aria-label="Acercar" data-i18n-aria="game.zoomIn" aria-keyshortcuts="+">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-zoom-out" type="button" aria-label="Alejar" data-i18n-aria="game.zoomOut" aria-keyshortcuts="-">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+        </button>
+      </div>
     </main>
 
     <nav class="controls" id="controls" aria-label="Controles del nivel" data-i18n-aria="game.controls">

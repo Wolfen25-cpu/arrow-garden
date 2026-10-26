@@ -36,6 +36,9 @@ export function createUI(handlers) {
     prev: $('btn-prev'),
     next: $('btn-next'),
     controls: $('controls'),
+    zoom: $('zoom'),
+    zoomIn: $('btn-zoom-in'),
+    zoomOut: $('btn-zoom-out'),
     undo: $('btn-undo'),
     hint: $('btn-hint'),
     restart: $('btn-restart'),
@@ -116,6 +119,8 @@ export function createUI(handlers) {
   let noticeTimer = 0;
   el.winNext.addEventListener('click', () => overlayAction());
   el.winLevels.addEventListener('click', handlers.onLevels);
+  el.zoomIn.addEventListener('click', () => handlers.onZoom(1));
+  el.zoomOut.addEventListener('click', () => handlers.onZoom(-1));
 
   document.addEventListener('keydown', (e) => {
     if (e.altKey || el.app.hidden || !el.win.hidden || e.target.closest('input, dialog')) return;
@@ -128,6 +133,10 @@ export function createUI(handlers) {
     else if (key === 'arrowright') handlers.onRotate(30, 0);
     else if (key === 'arrowup') handlers.onRotate(0, -30);
     else if (key === 'arrowdown') handlers.onRotate(0, 30);
+    // + / − zoom a 3D level, 0 shows all of it again.
+    else if ((key === '+' || key === '=') && !e.ctrlKey && !e.metaKey) handlers.onZoom(1);
+    else if (key === '-' && !e.ctrlKey && !e.metaKey) handlers.onZoom(-1);
+    else if (key === '0' && !e.ctrlKey && !e.metaKey) handlers.onZoom(0);
     else return;
     e.preventDefault();
   });
@@ -212,6 +221,7 @@ export function createUI(handlers) {
     setTutorial(on) {
       el.controls.hidden = on;
       el.coach.hidden = !on;
+      if (on) el.zoom.hidden = true;
       el.prev.classList.toggle('is-invisible', on);
       el.next.classList.toggle('is-invisible', on);
       if (!on) coach = null;
@@ -276,6 +286,11 @@ export function createUI(handlers) {
 
     setUndo(enabled) {
       el.undo.disabled = !enabled;
+    },
+
+    // Zoom buttons only show on levels that can zoom (3D).
+    setZoom(available) {
+      el.zoom.hidden = !available;
     },
 
     setSettings({ muted, vibration, showMoves, theme }) {

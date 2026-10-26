@@ -51,6 +51,7 @@ const ui = createUI({
   onRetry: retry,
   onLanguage: changeLanguage,
   onRotate: (dx, dy) => (mode === 'play' ? renderer.rotate?.(dx, dy) : undefined),
+  onZoom: zoom,
 });
 
 const account = setupAccount({ ensureCloud });
@@ -282,6 +283,15 @@ function refresh() {
   ui.setTier(game.tier);
   ui.setLives(game.errors, game.maxErrors);
   ui.setUndo(game.canUndo && !game.isWon && !game.isLost);
+  ui.setZoom(Boolean(renderer.zoomBy));
+}
+
+// +1 zooms in, -1 out, 0 shows the whole solid again.
+const ZOOM_STEP = 1.4;
+function zoom(step) {
+  if (mode !== 'play' || !renderer.zoomBy) return;
+  if (step === 0) renderer.resetZoom();
+  else renderer.zoomBy(step > 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
 }
 
 function useRenderer(next) {
