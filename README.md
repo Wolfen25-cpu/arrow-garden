@@ -15,13 +15,15 @@ Si te quedas sin choques, el nivel vuelve a empezar y no pierdes nada más.
 - **Selector de niveles** en cuadrícula: completados en color, el actual resaltado y los
   bloqueados con candado.
 - **Tutorial interactivo** en un tablero de 3×3 que enseña a mover, a rebotar y las flechas con curva.
-- **100 niveles** generados proceduralmente, de 4×4 a 10×10. Los 10 primeros son sencillos para
+- **150 niveles** generados proceduralmente, de 4×4 a 10×10. Los 10 primeros son sencillos para
   aprender a jugar; a partir del 11 la dificultad se mezcla (fácil, media, difícil y experta) y los
   niveles difíciles son cada vez más frecuentes.
+- **Segundo acto (101–150)**: solo niveles difíciles, expertos y *maestros*, con flechas largas
+  (hasta 7 casillas) que se doblan hasta tres veces.
 - **24 figuras**: en los niveles 11, 15, 19… el tablero tiene forma de gato, corazón, casa, pez,
   conejo, flor, cohete, árbol, tortuga, estrella, lobo, paraguas, barco, búho, manzana, hongo,
   ancla, cactus, pájaro, luna, corona, fantasma o mariposa. El nivel 100 es un dragón.
-- **Dificultad visible**: cada nivel muestra si es fácil, medio, difícil o experto, en la barra
+- **Dificultad visible**: cada nivel muestra si es fácil, medio, difícil, experto o maestro, en la barra
   superior y con un punto de color en la cuadrícula.
 - **Flechas de doble punta** (desde el nivel 21): pueden salir por cualquiera de sus extremos.
 - **Obstáculos**: cuadros azules que desvían la flecha (desde el 31) y hoyos que se la tragan
@@ -29,6 +31,10 @@ Si te quedas sin choques, el nivel vuelve a empezar y no pierdes nada más.
 - **Niveles en cubo 3D** (14, 24 … 94): cada cara del cubo es una cuadrícula de flechas, y algunas
   doblan por las aristas hacia la cara vecina. Arrastra (o usa las flechas del teclado) para
   girar el cubo; cada flecha sale por el borde de la cara donde está su punta.
+- **Figuras 3D** (104, 108, 114, 118 … 148 y el 150): torre, losa, cubo con muesca, ladrillo,
+  marco con hueco, escalera, arco, cruz, túnel, pirámide escalonada y, al final, un cubo
+  atravesado por tres túneles. Las flechas pueden subir por las paredes de los huecos; ninguna
+  apunta a una pared.
 - **Niveles con límite de choques**: a partir del 13, uno de cada cuatro niveles permite solo 3
   choques (2 desde el nivel 50, salvo en los expertos). Se ven como corazones junto al contador.
 - **Siempre hay solución**: el generador solo acepta un tablero si existe un orden válido para
@@ -156,8 +162,8 @@ tools/check-levels.mjs  Verifica que todos los niveles tienen solución
 ## Comprobar los niveles
 
 ```bash
-node tools/check-levels.mjs 100
+node tools/check-levels.mjs 150
 ```
 
-Genera los niveles 1 a 100 y comprueba que todos tienen solución, que son deterministas y que las
+Genera los niveles 1 a 150 y comprueba que todos tienen solución, que son deterministas y que las
 flechas están bien formadas.

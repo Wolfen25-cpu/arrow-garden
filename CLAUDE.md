@@ -11,8 +11,9 @@ Arrow Garden (arrow-garden): a relaxing arrow puzzle for the browser, published 
   uses up a heart, and running out just restarts the same board. Keep limits rare and gentle.
   The tutorial never has a limit.
 - **Every generated level must be solvable.** Any generator change must keep `solve()` passing;
-  run `node tools/check-levels.mjs 100` before committing.
-- **Levels are deterministic**: level N always produces the same board (seeded RNG). Never use
+  run `node tools/check-levels.mjs 150` before committing.
+- **Levels are deterministic**: level N always produces the same board (seeded RNG). Levels
+  1–100 are pinned by `ACT_ONE` in `levels.js`; new options only roll the RNG when a level uses them. Never use
   `Math.random()` in `generator.js`, `levels.js` or `game.js` (it is fine in `render.js` for particles).
 - **User-facing text is in Spanish and English**, all of it in `js/i18n.js` (`t(key, params)`).
   Never hard-code a visible string: add the key to **both** `es` and `en`. Static HTML uses
@@ -36,18 +37,20 @@ main.js ── wires everything; owns `state` (progress + settings), the current
   │          completed (can be LEVEL_COUNT + 1), so completed = maxLevel - 1.
   ├─ tutorial.js ─── fixed 3×3 board + scripted steps (target arrow, expected result, text)
   ├─ generator.js ── generateLevel(n) → { level, size, arrows, depth, shape, mask, maxErrors,
-  │    │              tier, obstacles }; 3D levels delegate to generator3d.js (`is3d: true`)
-  │    ├─ levels.js   levelConfig(n): size, shape, tier, maxErrors, arrow lengths, bend chance,
-  │    │              fill, min/max depth, doubleChance, turns, holes, is3d/solid, seed.
+  │    │              tier, obstacles }; 3D levels delegate to generator3d.js (`is3d`, `solid`)
+  │    ├─ levels.js   levelConfig(n): size, shape, tier, maxErrors, arrow lengths, bends, bend
+  │    │              chance, fill, min/max depth, doubleChance, turns, holes, is3d/solid, seed.
   │    │              1–10 intro; then a seeded tier per level (easy | medium | hard | expert),
-  │    │              harder tiers likelier towards the end
-  │    ├─ generator3d.js  arrows on the six faces of a cube (bodies may cross edges)
+  │    │              harder tiers likelier towards 100. Second act 101–150: hard | expert |
+  │    │              master only, arrows up to 7 cells with up to 3 bends
+  │    ├─ generator3d.js  arrows on a solid's surface (bodies may cross edges)
+  │    ├─ solids.js   voxel solids for 3D levels: cube3/cube4, boxes, shapes with holes
   │    ├─ shapes.js   ASCII pictures (heart, house, wolf…) → shapeMask(id, size)
   │    └─ rng.js      createRng(seed), hashSeed(...)
   ├─ game.js ─────── pure model (no DOM): Game, solve(), exitPath(), exitWay(), reversed(), DIRS
-  ├─ game3d.js ───── pure cube model: surface(N) geometry, Game3D (same interface as Game), solve3()
+  ├─ game3d.js ───── pure 3D model: surface(solid) geometry, Game3D (same interface as Game), solve3()
   ├─ render.js ───── Canvas 2D renderer; animations only, never mutates the game
-  ├─ render3d.js ─── Canvas 2D orthographic view of the cube's faces; drag/arrow keys turn it
+  ├─ render3d.js ─── Canvas 2D orthographic view of the solid, cell by cell; drag/arrow keys turn it
   ├─ input.js ────── pointer tap → renderer.pick() → arrow id; drag → renderer.rotate()
   ├─ audio.js ────── Web Audio synth (Sound) + vibrate()
   ├─ ui.js ───────── DOM: home screen, top bar, controls, tutorial coach, settings dialog,
@@ -60,7 +63,8 @@ main.js ── wires everything; owns `state` (progress + settings), the current
 ### Core model
 
 - An arrow is `{ id, cells, dir, color, both? }`. `cells` runs **tail → head**, 1–4 cells, straight
-  or with one 90° bend. `dir` is the head direction (`up | right | down | left`). `color` is a
+  or with one 90° bend (levels 1–100); from 101 up to 7 cells and `bends` bends, each straight
+  run ≥ 2 cells (`bendPlan` in generator.js). `dir` is the head direction (`up | right | down | left`). `color` is a
   palette index (0–11); the actual colours live in `render.js` (`PALETTES.light` / `.dark`).
   `both` marks a double arrow that may also leave tail first (`reversed()`). A tap sends it
   towards the end nearest the touch (`nearTail()` on `renderer.boardPoint()`), bumping if
@@ -72,11 +76,14 @@ main.js ── wires everything; owns `state` (progress + settings), the current
   that loops or meets a turn head-on is `null` (never removable; the generator rejects it).
 - **Invariant:** removing an arrow only frees cells, so the greedy round-by-round solver in
   `solve()` is complete. Every new mechanic must keep this true. `depth` (rounds) measures difficulty.
-- Cube levels: the board is the surface of an N×N×N cube, cells numbered `face·N² + v·N + u`.
-  Arrows are `{ id, cells, dir, color }` like flat ones, but `dir` is a 3D axis name (`x± | y± | z±`)
-  and bodies may run over an edge (`surface(N).step()` turns the walk down the next face). An
-  arrow leaves straight off the edge of its head's face (`exitPath3`); the same invariant and
-  solver shape apply (`solve3`).
+- 3D levels: the board is the surface of a voxel solid (`solids.js`; `cube3`/`cube4` are the old
+  cube levels), one cell per exposed cube face, numbered by orientation, layer, v, u (on a cube
+  exactly `face·N² + v·N + u`, so the old boards never changed). Arrows are `{ id, cells, dir,
+  color }` like flat ones, but `dir` is a 3D axis name (`x± | y± | z±`) and bodies may run over
+  an edge: `surface(id).step()` climbs a wall (concave), goes on across the plane, or over the
+  rim (convex). An arrow leaves straight across its flat stretch and off the rim (`exitPath3`);
+  a wall in the way makes the path `null` (never removable; the generator rejects it). Same
+  invariant and solver shape (`solve3`).
 - `Game.tap(id)` returns `{ type: 'exit' | 'blocked', arrow, distance, path, hole? }` (or `null`
   once `isLost`); `arrow` is the moving version (reversed for a double backing out). A bump increments `errors`; undo never refunds it, restart resets it. The model updates
   immediately; the renderer keeps exiting arrows alive as ghost animations, so players can tap
@@ -94,6 +101,8 @@ other levels keep their exact boards.
 
 Special levels: pictures every 4th from 11 (100 = dragon), error limits on ≡ 1 mod 4 from 13,
 3D on 14, 24 … 94, doubles from 21, turns from 31, holes from 41 (never on pictures or 3D).
+Second act: solids on 104, 108, 114, 118 … 148 and the finale 150 (`menger`). Winding levels
+(`bends` > 1) get 3× the attempts, favour long bodies and fill gaps with a pass of short arrows.
 The first time a mechanic appears on a device, `introduceLevel()` explains it (`state.tips`).
 
 Picture levels pass a `mask` (flat 0/1 array): cells outside it are walled off during
@@ -110,15 +119,16 @@ to the real board edge, through the empty cells outside the picture.
 - Both renderers expose the same API (`setGame`, `playExit(result)`, `playBounce(result)`,
   `showHint`, `clearHint`, `requestDraw`, `readTheme`, `calm`, `pick`, `tapSlop`); the 3D one
   adds `rotate(dx, dy)`. The inactive renderer holds `game = null` and draws nothing.
-- Cube: only faces turned towards the camera are drawn (a convex solid, so they never overlap).
-  Each face is painted through its own affine transform (face coordinates in cells) and clipped
-  to its outline, so arrows are flat 2D arrows on the surface and never stick out. Tracks are
-  sampled every half cell; from one face, the part of a track on a neighbouring face is
-  unfolded flat past the shared edge (`unfolder`), where the clip hides it. `pick()` inverts
-  the face's parallelogram to find the cell, so it does not depend on the last frame.
-- Cube turning is a trackball: `orientation` is a rotation matrix and each drag pre-multiplies
-  a turn about the screen axes, so the cube always follows the finger. Speed scales with the
-  cube's size on screen (`TURN_PER_DIAMETER`).
+- 3D: only cells turned towards the camera are drawn, far to near (solids with holes are not
+  convex). Each cell is painted through its own affine transform and clipped to itself (grown
+  by `SEAM` px so neighbours show no seam; a nearer cell repaints the overlap). Arrows are flat
+  2D arrows on the surface and never stick out. Tracks are sampled every half cell; a segment
+  on a cell round an edge is unfolded flat past that edge (`unfolder`), where the clip hides
+  it; only cells in `near[cell]` count. `pick()` inverts each visible cell's parallelogram,
+  nearest first, so it does not depend on the last frame.
+- 3D turning is a trackball: `orientation` is a rotation matrix and each drag pre-multiplies
+  a turn about the screen axes, so the solid always follows the finger. Speed scales with the
+  solid's size on screen (`TURN_PER_DIAMETER`).
 - The rAF loop runs only while something animates (`requestDraw()`).
 - Theme colours come from CSS custom properties (`--board`, `--board-edge`, `--dot`); call
   `renderer.readTheme()` after changing `data-theme`.
@@ -147,7 +157,8 @@ to the real board edge, through the empty cells outside the picture.
 
 ```bash
 python -m http.server 8000         # serve locally (ES modules need http://)
-node tools/check-levels.mjs 100    # verify levels: solvable, deterministic, well-formed
+node tools/check-levels.mjs 150    # verify levels: solvable, deterministic, well-formed
 ```
 
-Changing `LEVEL_COUNT` in `levels.js` adds levels; the curve keeps going and caps at 10×10.
+Changing `LEVEL_COUNT` in `levels.js` lengthens the second act (its tiers are weighted over
+101…`LEVEL_COUNT`, so those boards change); levels 1–100 stay fixed by `ACT_ONE`.
